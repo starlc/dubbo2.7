@@ -20,6 +20,10 @@ import java.util.Collection;
 
 /**
  * Interface defining serialization optimizer, there are nothing implementations for now.
+ * 定义需要序列化的类
+ * 这里先介绍一个基础知识，在使用某些序列化算法（例如， Kryo、FST 等）时，为了让其能发挥出最佳的性能，
+ * 最好将那些需要被序列化的类提前注册到 Dubbo 系统中。
+ * 例如，我们可以通过一个实现了 SerializationOptimizer 接口的优化器，并在配置中指定该优化器
  */
 public interface SerializationOptimizer {
 

@@ -21,6 +21,8 @@ import java.util.Map;
 
 /**
  * Object output interface.
+ * ObjectOutput 接口继承了 DataOutput 接口，并在其基础之上，添加了序列化对象的功能，具体定义如下图所示，
+ * 其中的 writeThrowable()、writeEvent() 和 writeAttachments() 方法都是调用 writeObject() 方法实现的。
  */
 public interface ObjectOutput extends DataOutput {
 

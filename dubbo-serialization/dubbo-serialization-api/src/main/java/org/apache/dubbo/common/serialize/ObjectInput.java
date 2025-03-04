@@ -22,6 +22,7 @@ import java.util.Map;
 
 /**
  * Object input interface.
+ * 在DataInput基础上添加 readObject readThrowable readEvent 方法 这些都是依赖readObject方法
  */
 public interface ObjectInput extends DataInput {
 

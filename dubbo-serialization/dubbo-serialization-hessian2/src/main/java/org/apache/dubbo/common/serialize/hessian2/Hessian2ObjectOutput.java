@@ -27,6 +27,8 @@ import java.io.OutputStream;
 
 /**
  * Hessian2 object output implementation
+ * Hessian2ObjectOutput 中会封装一个 Hessian2Output 对象，需要注意，这个对象是 ThreadLocal(新版本已经不是) 的，与线程绑定。
+ * 在 DataOutput 接口以及 ObjectOutput 接口中，序列化各类型数据的方法都会委托给 Hessian2Output 对象的相应方法完成
  */
 public class Hessian2ObjectOutput implements ObjectOutput, Cleanable {
 

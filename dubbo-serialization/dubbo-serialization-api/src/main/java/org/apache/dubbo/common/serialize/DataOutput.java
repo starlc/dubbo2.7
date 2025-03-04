@@ -20,6 +20,8 @@ import java.io.IOException;
 
 /**
  * Basic data type output interface.
+ * 在 DataOutput 接口中定义了序列化 Java 中各种数据类型的相应方法，如下图所示，
+ * 其中有序列化 boolean、short、int、long 等基础类型的方法，也有序列化 String、byte[] 的方法。
  */
 public interface DataOutput {
 

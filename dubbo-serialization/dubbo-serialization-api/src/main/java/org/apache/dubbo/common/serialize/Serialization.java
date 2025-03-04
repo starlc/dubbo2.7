@@ -31,6 +31,7 @@ import java.io.OutputStream;
  * <pre>
  *     e.g. &lt;dubbo:protocol serialization="xxx" /&gt;
  * </pre>
+ * 最核心的是 Serialization 这个接口，它是一个扩展接口，被 @SPI 接口修饰，默认扩展实现是 Hessian2Serialization。
  */
 @SPI("hessian2")
 public interface Serialization {
@@ -39,21 +40,21 @@ public interface Serialization {
      * Get content type unique id, recommended that custom implementations use values different with
      * any value of {@link Constants} and don't greater than ExchangeCodec.SERIALIZATION_MASK (31) 
      * because dubbo protocol use 5 bits to record serialization ID in header.
-     *
+     * // 获取ContentType的ID值，是一个byte类型的值，唯一确定一个算法
      * @return content type id
      */
     byte getContentTypeId();
 
     /**
      * Get content type
-     *
+     * // 每一种序列化算法都对应一个ContentType，该方法用于获取ContentType
      * @return content type
      */
     String getContentType();
 
     /**
      * Get a serialization implementation instance
-     *
+     * // 创建一个ObjectOutput对象，ObjectOutput负责实现序列化的功能，即将Java对象转化为字节序列
      * @param url URL address for the remote service
      * @param output the underlying output stream
      * @return serializer
@@ -64,6 +65,7 @@ public interface Serialization {
 
     /**
      * Get a deserialization implementation instance
+     * 创建一个ObjectInput对象，ObjectInput负责实现反序列化的功能，即将字节序列转换成Java对象
      *
      * @param url URL address for the remote service
      * @param input the underlying input stream
