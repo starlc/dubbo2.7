@@ -1,0 +1,104 @@
+@startuml
+title Nacos配置中心工作原理
+
+box "Client" #LightBlue
+participant "ConfigService" as client
+participant "ClientWorker" as worker
+participant "CacheData" as cache
+participant "ScheduledExecutor" as scheduler
+end box
+
+box "Server" #LightGreen
+participant "ConfigController" as controller
+participant "ConfigService" as service
+participant "ConfigInfoPersistService" as persist
+participant "DatabaseOperate" as db
+end box
+
+== 配置发布流程 ==
+-> controller: publishConfig()
+activate controller
+
+controller -> service: insertOrUpdate()
+activate service
+
+service -> persist: insertOrUpdate()
+activate persist
+
+persist -> db: save()
+note right
+  1. 写入配置表
+  2. 记录历史版本
+  3. 更新MD5值
+end note
+
+db --> persist
+deactivate persist
+
+service -> service: notifyConfigChange()
+note right
+  1. 触发变更事件
+  2. 更新服务端缓存
+  3. 准备长轮询响应
+end note
+
+service --> controller
+deactivate service
+
+<-- controller
+deactivate controller
+
+== 配置订阅流程 ==
+client -> worker: addTenantListeners()
+activate worker
+
+worker -> cache: init()
+note right
+  1. 初始化本地缓存
+  2. 保存MD5快照
+  3. 注册监听器
+end note
+
+worker -> scheduler: scheduleWithFixedDelay()
+activate scheduler
+note right
+  1. 创建定时任务
+  2. 配置检查间隔
+  3. 任务调度管理
+end note
+
+scheduler -> worker: checkConfigInfo()
+activate worker
+
+worker -> controller: listener()
+activate controller
+note right
+  1. 长轮询等待30s
+  2. 比对MD5值
+  3. 检查配置变更
+end note
+
+alt 配置未变更
+    controller --> worker: 等待超时返回
+else 配置已变更
+    controller --> worker: 立即返回变更
+end
+
+worker -> worker: refreshContentAndCheck()
+note right
+  1. 获取最新配置
+  2. 更新本地缓存
+  3. 触发变更回调
+end note
+
+worker --> scheduler
+deactivate worker
+
+scheduler -> scheduler: delay()
+note right
+  1. 等待下次检查
+  2. 错误重试处理
+  3. 间隔时间控制
+end note
+
+@enduml

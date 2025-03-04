@@ -1,0 +1,165 @@
+@startuml
+title SpringBoot加载Nacos配置中心流程
+
+participant "SpringApplication" as app
+participant "PropertySourceLocator" as locator
+participant "NacosConfigManager" as manager
+participant "NacosConfigService" as config
+participant "NacosConfigProperties" as properties
+participant "ConfigService" as service
+participant "ServerListManager" as server
+participant "ClientWorker" as worker
+participant "NacosClient" as client
+
+-> app: run()
+activate app
+
+== 配置初始化阶段 ==
+app -> app: prepareEnvironment()
+activate app
+
+app -> locator: locate()
+activate locator
+note right
+  1. 加载bootstrap配置
+  2. 处理配置优先级
+  3. 准备配置环境
+end note
+
+locator -> properties: load()
+activate properties
+
+properties -> manager: getNacosConfigService()
+activate manager
+
+manager -> config: createConfigService()
+activate config
+
+config -> service: createConfigService()
+activate service
+
+service -> server: initServerAddr()
+activate server
+note right
+  1. 解析服务地址
+  2. 健康检查
+  3. 地址轮询策略
+end note
+
+server --> service
+deactivate server
+
+service -> worker: startLongPolling()
+activate worker
+note right
+  1. 长轮询任务
+  2. 配置变更监听
+  3. 本地缓存处理
+end note
+
+worker --> service
+deactivate worker
+
+service --> config
+deactivate service
+
+config --> manager
+deactivate config
+
+manager --> properties
+deactivate manager
+
+properties --> locator
+deactivate properties
+
+== 配置加载阶段 ==
+locator -> client: getConfig()
+activate client
+
+client -> client: checkConfigInfo()
+note right
+  1. 检查配置版本
+  2. 验证配置格式
+  3. 处理配置加密
+end note
+
+client -> client: getServerConfig()
+note right
+  1. HTTP请求获取配置
+  2. 处理网络异常
+  3. 重试机制
+end note
+
+client -> client: saveLocalConfig()
+note right
+  1. 本地快照存储
+  2. 备份配置文件
+  3. MD5校验
+end note
+
+client --> locator
+deactivate client
+
+locator -> locator: parseConfig()
+note right
+  1. 解析配置内容
+  2. 处理配置占位符
+  3. 配置格式转换
+end note
+
+locator --> app
+deactivate locator
+
+== 配置监听阶段 ==
+app -> worker: addListener()
+activate worker
+
+worker -> worker: initConfigCache()
+note right
+  1. 初始化本地缓存
+  2. 配置MD5记录
+  3. 更新任务管理
+end note
+
+worker -> worker: executeConfigListen()
+note right
+  1. 定时轮询检查
+  2. 配置变更比对
+  3. 触发更新通知
+end note
+
+worker --> app
+deactivate worker
+
+app --> app
+deactivate app
+
+<-- app
+deactivate app
+
+note right of worker
+  长轮询机制:
+  1. 定时任务调度
+  2. 配置变更检测
+  3. 增量更新处理
+  4. 本地缓存同步
+end note
+
+note right of client
+  配置管理:
+  1. 多环境配置
+  2. 配置分组管理
+  3. 命名空间隔离
+  4. 配置版本控制
+end note
+
+note right of properties
+  配置属性:
+  1. 服务端地址
+  2. 命名空间
+  3. 分组配置
+  4. 超时时间
+  5. 重试策略
+end note
+
+@enduml

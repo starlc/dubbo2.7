@@ -1,0 +1,97 @@
+@startuml
+title Nacos配置动态刷新原理
+
+participant "NacosConfigService" as config
+participant "ClientWorker" as worker
+participant "ConfigurationProperties" as properties
+participant "RefreshScope" as scope
+participant "ContextRefresher" as refresher
+participant "ConfigurationPropertiesRebinder" as rebinder
+participant "Spring Bean" as bean
+
+-> config: addListener()
+activate config
+
+config -> worker: addTenantListeners()
+activate worker
+
+worker -> worker: checkConfigInfo()
+note right
+  1. 长轮询检测变更
+  2. MD5值比对
+  3. 触发变更事件
+end note
+
+worker -> properties: onReceiveConfigInfo()
+activate properties
+
+properties -> refresher: refresh()
+activate refresher
+
+refresher -> scope: refresh()
+activate scope
+note right
+  1. 清除RefreshScope缓存
+  2. 销毁旧的Bean实例
+  3. 准备重新创建Bean
+end note
+
+scope -> rebinder: rebind()
+activate rebinder
+note right
+  1. 重新绑定配置
+  2. 更新属性值
+  3. 触发属性刷新
+end note
+
+rebinder -> bean: refreshEnvironment
+activate bean
+note right
+  1. 重新注入属性
+  2. 触发生命周期
+  3. 更新Bean状态
+end note
+
+bean --> rebinder
+deactivate bean
+
+rebinder --> scope
+deactivate rebinder
+
+scope --> refresher
+deactivate scope
+
+refresher --> properties
+deactivate refresher
+
+properties --> worker
+deactivate properties
+
+worker --> config
+deactivate worker
+
+<-- config
+deactivate config
+
+note right of properties
+  配置属性绑定:
+  1. @ConfigurationProperties
+  2. @RefreshScope
+  3. @Value
+end note
+
+note right of scope
+  作用域刷新:
+  1. 管理Bean生命周期
+  2. 缓存Bean实例
+  3. 支持动态刷新
+end note
+
+note right of refresher
+  环境刷新:
+  1. 更新Environment
+  2. 触发刷新事件
+  3. 重建Bean定义
+end note
+
+@enduml
