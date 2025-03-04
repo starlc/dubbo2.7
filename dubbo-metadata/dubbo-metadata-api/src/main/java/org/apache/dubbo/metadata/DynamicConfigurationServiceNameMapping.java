@@ -34,6 +34,9 @@ import static org.apache.dubbo.rpc.model.ApplicationModel.getName;
 
 /**
  * The {@link ServiceNameMapping} implementation based on {@link DynamicConfiguration}
+ * DynamicConfigurationServiceNameMapping 是 ServiceNameMapping 的默认实现，也是唯一实现，
+ * 其中会依赖 DynamicConfiguration 读写配置中心，
+ * 完成 Service ID 和 Service Name 的映射。
  */
 public class DynamicConfigurationServiceNameMapping implements ServiceNameMapping {
 
@@ -45,6 +48,7 @@ public class DynamicConfigurationServiceNameMapping implements ServiceNameMappin
 
     @Override
     public void map(URL url) {
+        // 跳过MetadataService接口的处理
         String serviceInterface = url.getServiceInterface();
         String group = url.getParameter(GROUP_KEY);
 
@@ -52,15 +56,20 @@ public class DynamicConfigurationServiceNameMapping implements ServiceNameMappin
             return;
         }
 
+        // 获取DynamicConfiguration对象
         DynamicConfiguration dynamicConfiguration = DynamicConfiguration.getDynamicConfiguration();
 
         // the Dubbo Service Key as group
         // the service(application) name as key
         // It does matter whatever the content is, we just need a record
+        // 从ApplicationModel中获取Service Name
         String key = getName();
         String content = valueOf(System.currentTimeMillis());
 
         execute(() -> {
+            // 在配置中心创建映射关系，这里的buildGroup()方法虽然接收四个参数，但是只使用了serviceInterface
+            // 也就是使用创建了服务接口到Service Name的映射
+            // 可以暂时将配置中心理解为一个KV存储，这里的Key是buildGroup()方法返回值+Service Name构成的，value是content（即时间戳）
             dynamicConfiguration.publishConfig(key, ServiceNameMapping.buildGroup(serviceInterface), content);
             if (logger.isInfoEnabled()) {
                 logger.info(String.format("Dubbo service[%s] mapped to interface name[%s].",
@@ -72,8 +81,10 @@ public class DynamicConfigurationServiceNameMapping implements ServiceNameMappin
     @Override
     public Set<String> getAndListen(URL url, MappingListener mappingListener) {
         String serviceInterface = url.getServiceInterface();
+        // 获取DynamicConfiguration对象
         DynamicConfiguration dynamicConfiguration = DynamicConfiguration.getDynamicConfiguration();
 
+        // 根据Service ID从配置查找Service Name
         Set<String> serviceNames = new LinkedHashSet<>();
         execute(() -> {
             Set<String> keys = dynamicConfiguration
@@ -82,6 +93,7 @@ public class DynamicConfigurationServiceNameMapping implements ServiceNameMappin
                 serviceNames.addAll(keys);
             }
         });
+        // 返回查找到的全部Service Name
         return Collections.unmodifiableSet(serviceNames);
     }
 

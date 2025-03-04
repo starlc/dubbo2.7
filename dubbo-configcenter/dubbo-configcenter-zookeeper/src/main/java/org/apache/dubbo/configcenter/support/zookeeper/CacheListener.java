@@ -33,7 +33,19 @@ import static org.apache.dubbo.common.constants.CommonConstants.DOT_SEPARATOR;
 import static org.apache.dubbo.common.constants.CommonConstants.PATH_SEPARATOR;
 
 /**
+ *  dubbo-remoting-zookeeper 对外提供了 StateListener、DataListener 和 ChildListener 三种类型的监听器。
+ *  这里的 CacheListener 就是 DataListener 监听器的具体实现。
  *
+ *  在 CacheListener 中维护了一个 Map<String, Set> 集合（keyListeners 字段）
+ *  用于记录所有添加的 ConfigurationListener 监听器，其中 Key 是配置信息在 Zookeeper 中存储的 path，
+ *  Value 为该 path 上的监听器集合。当某个配置项发生变化的时候，
+ *  CacheListener 会从 keyListeners 中获取该配置对应的 ConfigurationListener 监听器集合，并逐个进行通知。
+ *
+ *  CacheListener 中调用的监听器都是 ConfigurationListener 接口实现，如下图所示，
+ *  这里涉及 TagRouter、AppRouter 和 ServiceRouter，它们主要是监听路由配置的变化；
+ *
+ *  还涉及 RegistryDirectory 和 RegistryProtocol 中的四个内部类（AbstractConfiguratorListener 的子类），
+ *  它们主要监听 Provider 和 Consumer 的配置变化。
  */
 
 public class CacheListener implements DataListener {
@@ -98,6 +110,7 @@ public class CacheListener implements DataListener {
     @Override
     public void dataChanged(String path, Object value, EventType eventType) {
         ConfigChangeType changeType;
+        // 将Zookeeper中不同的事件转换成不同的ConfigChangedEvent事件
         if (EventType.NodeCreated.equals(eventType)) {
             changeType = ConfigChangeType.ADDED;
         } else if (value == null) {
@@ -107,7 +120,9 @@ public class CacheListener implements DataListener {
         }
         String key = pathToKey(path);
 
+        // 使用ConfigChangedEvent封装触发事件的Key、Value、配置group以及事件类型
         ConfigChangedEvent configChangeEvent = new ConfigChangedEvent(key, getGroup(path), (String) value, changeType);
+        // 从keyListeners集合中获取对应的ConfigurationListener集合，然后逐一进行通知
         Set<ConfigurationListener> listeners = keyListeners.get(path);
         if (CollectionUtils.isNotEmpty(listeners)) {
             listeners.forEach(listener -> listener.process(configChangeEvent));

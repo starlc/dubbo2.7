@@ -22,7 +22,7 @@ import org.apache.dubbo.common.extension.SPI;
 
 /**
  * ConfiguratorFactory. (SPI, Singleton, ThreadSafe)
- *
+ * ConfiguratorFactory 接口是一个扩展接口，Dubbo 提供了两个实现类
  */
 @SPI
 public interface ConfiguratorFactory {

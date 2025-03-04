@@ -23,18 +23,20 @@ import org.apache.dubbo.rpc.cluster.Directory;
 
 /**
  * mock impl
- *
+ * MockClusterWrapper 是 Cluster 对象的包装类
  */
 public class MockClusterWrapper implements Cluster {
 
     private Cluster cluster;
 
+    // Wrapper类都会有一个拷贝构造函数
     public MockClusterWrapper(Cluster cluster) {
         this.cluster = cluster;
     }
 
     @Override
     public <T> Invoker<T> join(Directory<T> directory) throws RpcException {
+        // 用MockClusterInvoker进行包装
         return new MockClusterInvoker<T>(directory,
                 this.cluster.join(directory));
     }

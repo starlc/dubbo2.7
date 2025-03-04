@@ -26,19 +26,26 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public final class InternalThreadLocalMap {
 
-    private Object[] indexedVariables;
+    private Object[] indexedVariables;//用于存储绑定到当前线程的数据。
 
+    //当使用原生 Thread 的时候，会使用该 ThreadLocal 存储 InternalThreadLocalMap，这是一个降级策略。
     private static ThreadLocal<InternalThreadLocalMap> slowThreadLocalMap = new ThreadLocal<InternalThreadLocalMap>();
 
+    //自增索引，用于计算下次存储到 indexedVariables 数组中的位置，这是一个静态字段。
     private static final AtomicInteger NEXT_INDEX = new AtomicInteger();
 
+    /**
+     * 当一个与线程绑定的值被删除之后，会被设置为 UNSET 值
+     */
     public static final Object UNSET = new Object();
 
     public static InternalThreadLocalMap getIfSet() {
-        Thread thread = Thread.currentThread();
-        if (thread instanceof InternalThread) {
+        Thread thread = Thread.currentThread();// 获取当前线程
+        if (thread instanceof InternalThread) {// 判断当前线程的类型
+            // 如果是InternalThread类型，直接获取InternalThreadLocalMap返回
             return ((InternalThread) thread).threadLocalMap();
         }
+        // 原生Thread则需要通过ThreadLocal获取InternalThreadLocalMap
         return slowThreadLocalMap.get();
     }
 

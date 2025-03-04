@@ -23,6 +23,8 @@ import java.util.concurrent.ForkJoinPool;
  *
  * @see ForkJoinPool#commonPool()
  * @since 2.7.5
+ *
+ * 在 ParallelEventDispatcher 中通知 EventListener 的线程池是 ForkJoinPool，也就是并行模式；
  */
 public class ParallelEventDispatcher extends AbstractEventDispatcher {
     public static final String NAME = "parallel";

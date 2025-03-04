@@ -23,6 +23,9 @@ import org.apache.dubbo.rpc.cluster.Router;
 
 /**
  * Tag router factory
+ * TagRouterFactory 作为 RouterFactory 接口的扩展实现，其扩展名为 tag。但是需要注意的是，
+ * TagRouterFactory 与上一课时介绍的 ConditionRouterFactory、ScriptRouterFactory 的不同之处在于，
+ * 它是通过继承 CacheableRouterFactory 这个抽象类，间接实现了 RouterFactory 接口。
  */
 @Activate(order = 100)
 public class TagRouterFactory extends CacheableRouterFactory {

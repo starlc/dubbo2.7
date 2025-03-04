@@ -22,6 +22,7 @@ import org.apache.dubbo.rpc.cluster.support.wrapper.AbstractCluster;
 
 /**
  * {@link FailfastClusterInvoker}
+ * FailfastCluster 的扩展名是 failfast，在其 doJoin() 方法中会创建 FailfastClusterInvoker 对象
  *
  */
 public class FailfastCluster extends AbstractCluster {

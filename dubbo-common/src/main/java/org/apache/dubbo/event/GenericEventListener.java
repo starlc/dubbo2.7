@@ -41,7 +41,9 @@ import static org.apache.dubbo.common.function.ThrowableFunction.execute;
  * <li>no {@link Exception exception} declaration</li>
  * <li>only one {@link Event} type argument</li>
  * </ul>
- *
+ * GenericEventListener 是一个泛型监听器，它可以让子类监听任意关心的 Event 事件，只需定义相关的 onEvent() 方法即可。
+ * 在 GenericEventListener 中维护了一个 handleEventMethods 集合，
+ * 其中 Key 是 Event 的子类，即监听器关心的事件，Value 是处理该类型 Event 的相应 onEvent() 方法。
  * @see Event
  * @see EventListener
  * @since 2.7.5
@@ -64,7 +66,11 @@ public abstract class GenericEventListener implements EventListener<Event> {
     private Map<Class<?>, Set<Method>> findHandleEventMethods() {
         // Event class for key, the eventMethods' Set as value
         Map<Class<?>, Set<Method>> eventMethods = new HashMap<>();
-        of(getClass().getMethods())
+        of(getClass().getMethods())// 遍历当前GenericEventListener子类的全部方法
+                // 过滤得到onEvent()方法，具体过滤条件在isHandleEventMethod()方法之中：
+                // 1.方法必须是public的
+                // 2.方法参数列表只有一个参数，且该参数为Event子类
+                // 3.方法返回值为void，且没有声明抛出异常
                 .filter(this::isHandleEventMethod)
                 .forEach(method -> {
                     Class<?> paramType = method.getParameterTypes()[0];
@@ -74,8 +80,14 @@ public abstract class GenericEventListener implements EventListener<Event> {
         return eventMethods;
     }
 
+    /**
+     * 会根据收到的 Event 事件的具体类型，从 handleEventMethods 集合中找到相应的 onEvent() 方法进行调用
+     * @param event a {@link Event Dubbo Event}
+     */
     public final void onEvent(Event event) {
+        // 获取Event的实际类型
         Class<?> eventClass = event.getClass();
+        // 根据Event的类型获取对应的onEvent()方法并调用
         handleEventMethods.getOrDefault(eventClass, emptySet()).forEach(method -> {
             ThrowableConsumer.execute(method, m -> {
                 m.invoke(this, event);

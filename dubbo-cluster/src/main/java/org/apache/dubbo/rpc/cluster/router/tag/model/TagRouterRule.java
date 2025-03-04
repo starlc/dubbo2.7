@@ -39,11 +39,20 @@ import java.util.stream.Collectors;
  * - name: tag2
  * addresses: [ip3, ip4]
  * ...
+ *
+ * 在 TagRouterRule 中维护了一个 Tag 集合，而在每个 Tag 对象中又都维护了一个 Tag 的名称，以及 Tag 绑定的网络地址集合
  */
 public class TagRouterRule extends AbstractRouterRule {
     private List<Tag> tags;
 
+    /**
+     *
+     * address 到 Tag 名称的映射
+     */
     private Map<String, List<String>> addressToTagnames = new HashMap<>();
+    /**
+     * Tag 名称到各个 address 的映射
+     */
     private Map<String, List<String>> tagnameToAddresses = new HashMap<>();
 
     public void init() {

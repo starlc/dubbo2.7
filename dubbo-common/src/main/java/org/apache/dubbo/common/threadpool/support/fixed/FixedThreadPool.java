@@ -36,6 +36,7 @@ import static org.apache.dubbo.common.constants.CommonConstants.THREAD_NAME_KEY;
 
 /**
  * Creates a thread pool that reuses a fixed number of threads
+ * 核心线程数为200 队列默认为SynchronousQueue
  *
  * @see java.util.concurrent.Executors#newFixedThreadPool(int)
  */

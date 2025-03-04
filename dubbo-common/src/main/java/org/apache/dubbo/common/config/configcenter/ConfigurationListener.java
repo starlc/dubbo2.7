@@ -20,6 +20,7 @@ import java.util.EventListener;
 
 /**
  * Config listener, will get notified when the config it listens on changes.
+ * 配置listener，监听配置变化事件
  */
 public interface ConfigurationListener extends EventListener {
 

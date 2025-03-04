@@ -22,7 +22,7 @@ import org.apache.dubbo.rpc.cluster.ConfiguratorFactory;
 
 /**
  * OverrideConfiguratorFactory
- *
+ * OverrideConfiguratorFactory 对应的扩展名为 override，创建的 Configurator 实现是 OverrideConfigurator；
  */
 public class OverrideConfiguratorFactory implements ConfiguratorFactory {
 

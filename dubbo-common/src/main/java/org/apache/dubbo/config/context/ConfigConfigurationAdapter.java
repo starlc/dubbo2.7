@@ -25,17 +25,23 @@ import java.util.Map;
 
 /**
  * This class receives an {@link AbstractConfig} and exposes its attributes through {@link Configuration}
+ * ConfigConfigurationAdapter 是 AbstractConfig 与 Configuration 之间的适配器，
+ * 它会将 AbstractConfig 对象转换成 Configuration 对象。
  */
 public class ConfigConfigurationAdapter implements Configuration {
 
     private Map<String, String> metaData;
 
     public ConfigConfigurationAdapter(AbstractConfig config) {
+        // 获取该AbstractConfig对象中的全部字段与字段值的映射
         Map<String, String> configMetadata = config.getMetaData();
         metaData = new HashMap<>(configMetadata.size(), 1.0f);
+        // 根据AbstractConfig配置的prefix和id，修改metaData集合中Key的名称
         for (Map.Entry<String, String> entry : configMetadata.entrySet()) {
+            //prefix 以.结尾
             String prefix = config.getPrefix().endsWith(".") ? config.getPrefix() : config.getPrefix() + ".";
             String id = StringUtils.isEmpty(config.getId()) ? "" : config.getId() + ".";
+            // xx.id.xx
             metaData.put(prefix + id + entry.getKey(), entry.getValue());
         }
     }

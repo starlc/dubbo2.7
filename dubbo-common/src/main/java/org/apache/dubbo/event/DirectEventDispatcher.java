@@ -21,6 +21,7 @@ package org.apache.dubbo.event;
  *
  * @see EventDispatcher
  * @since 2.7.5
+ * 并行通知模式
  */
 public final class DirectEventDispatcher extends AbstractEventDispatcher {
     public static final String NAME = "direct";

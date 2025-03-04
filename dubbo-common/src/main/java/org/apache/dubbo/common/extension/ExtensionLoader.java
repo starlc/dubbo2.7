@@ -698,7 +698,9 @@ public class ExtensionLoader<T> {
 
                 if (CollectionUtils.isNotEmpty(wrapperClassesList)) {
                     for (Class<?> wrapperClass : wrapperClassesList) {
+                        //这段代码可能是历史遗留或为未来扩展预留，但在当前版本中，包装类的识别和处理主要依赖构造函数的特征，而不是注解。
                         Wrapper wrapper = wrapperClass.getAnnotation(Wrapper.class);
+                        //这里生效的条件只有wrapper == null
                         if (wrapper == null
                                 || (ArrayUtils.contains(wrapper.matches(), name) && !ArrayUtils.contains(wrapper.mismatches(), name))) {
                             instance = injectExtension((T) wrapperClass.getConstructor(type).newInstance(instance));
@@ -706,7 +708,7 @@ public class ExtensionLoader<T> {
                     }
                 }
             }
-
+            //初始化Extension
             initExtension(instance);
             return instance;
         } catch (Throwable t) {
@@ -1069,6 +1071,7 @@ public class ExtensionLoader<T> {
      * cache wrapper class
      * <p>
      * like: ProtocolFilterWrapper, ProtocolListenerWrapper
+     * RegistryFactoryWrapper
      */
     private void cacheWrapperClass(Class<?> clazz) {
         if (cachedWrapperClasses == null) {
@@ -1081,6 +1084,7 @@ public class ExtensionLoader<T> {
      * test if clazz is a wrapper class
      * <p>
      * which has Constructor with given class type as its only argument
+     * 这段代码表明，如果一个类有一个以扩展点接口为参数的构造函数，就会被认为是一个包装类。
      */
     private boolean isWrapperClass(Class<?> clazz) {
         try {
@@ -1124,6 +1128,7 @@ public class ExtensionLoader<T> {
 
     private Class<?> createAdaptiveExtensionClass() {
         String code = new AdaptiveClassCodeGenerator(type, cachedDefaultName).generate();
+        System.out.println("创建自定义适配代理类："+code);
         ClassLoader classLoader = findClassLoader();
         org.apache.dubbo.common.compiler.Compiler compiler =
                 ExtensionLoader.getExtensionLoader(org.apache.dubbo.common.compiler.Compiler.class).getAdaptiveExtension();

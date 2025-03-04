@@ -34,6 +34,7 @@ public class NacosDynamicConfigurationFactory extends AbstractDynamicConfigurati
         URL nacosURL = url;
         if (CommonConstants.DUBBO.equals(url.getParameter(CONFIG_NAMESPACE_KEY))) {
             // Nacos use empty string as default name space, replace default namespace "dubbo" to ""
+            // Nacos默认的命名空间是空
             nacosURL = url.removeParameter(CONFIG_NAMESPACE_KEY);
         }
         return new NacosDynamicConfiguration(nacosURL);

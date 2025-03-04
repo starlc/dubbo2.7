@@ -32,14 +32,19 @@ import java.util.List;
 
 import static org.apache.dubbo.common.constants.CommonConstants.REFERENCE_INTERCEPTOR_KEY;
 
+/**
+ * AbstractCluster 抽象类的核心逻辑是在 ClusterInvoker 外层包装一层 ClusterInterceptor，从而实现类似切面的效果。
+ */
 public abstract class AbstractCluster implements Cluster {
 
     private <T> Invoker<T> buildClusterInterceptors(AbstractClusterInvoker<T> clusterInvoker, String key) {
         AbstractClusterInvoker<T> last = clusterInvoker;
+        // 通过SPI方式加载ClusterInterceptor扩展实现
         List<ClusterInterceptor> interceptors = ExtensionLoader.getExtensionLoader(ClusterInterceptor.class).getActivateExtension(clusterInvoker.getUrl(), key);
 
         if (!interceptors.isEmpty()) {
             for (int i = interceptors.size() - 1; i >= 0; i--) {
+                // 将InterceptorInvokerNode收尾连接到一起，形成调用链
                 final ClusterInterceptor interceptor = interceptors.get(i);
                 final AbstractClusterInvoker<T> next = last;
                 last = new InterceptorInvokerNode<>(clusterInvoker, interceptor, next);
@@ -48,13 +53,29 @@ public abstract class AbstractCluster implements Cluster {
         return last;
     }
 
+    /**
+     * 在 AbstractCluster 抽象类的 join() 方法中，首先会调用 doJoin() 方法获取最终要调用的 Invoker 对象，
+     * doJoin() 是个抽象方法，由 AbstractCluster 子类根据具体的策略进行实现。
+     * 之后，AbstractCluster.join() 方法会调用 buildClusterInterceptors() 方法加载 ClusterInterceptor 扩展实现类，
+     * 对 Invoker 对象进行包装。
+     * @param directory
+     * @return
+     * @param <T>
+     * @throws RpcException
+     */
     @Override
     public <T> Invoker<T> join(Directory<T> directory) throws RpcException {
+        // 扩展名称由reference.interceptor参数确定
         return buildClusterInterceptors(doJoin(directory), directory.getUrl().getParameter(REFERENCE_INTERCEPTOR_KEY));
     }
 
     protected abstract <T> AbstractClusterInvoker<T> doJoin(Directory<T> directory) throws RpcException;
 
+    /**
+     * InterceptorInvokerNode 会将底层的 AbstractClusterInvoker 对象以及关联的 ClusterInterceptor 对象封装到一起，
+     * 还会维护一个 next 引用，指向下一个 InterceptorInvokerNode 对象。
+     * @param <T>
+     */
     protected class InterceptorInvokerNode<T> extends AbstractClusterInvoker<T> {
 
         private AbstractClusterInvoker<T> clusterInvoker;
@@ -84,20 +105,31 @@ public abstract class AbstractCluster implements Cluster {
             return clusterInvoker.isAvailable();
         }
 
+        /**
+         * 在 InterceptorInvokerNode.invoke() 方法中，会先调用 ClusterInterceptor 的前置逻辑，
+         * 然后执行 intercept() 方法调用 AbstractClusterInvoker 的 invoke() 方法完成远程调用，
+         * 最后执行 ClusterInterceptor 的后置逻辑
+         * @param invocation
+         * @return
+         * @throws RpcException
+         */
         @Override
         public Result invoke(Invocation invocation) throws RpcException {
             Result asyncResult;
             try {
-                interceptor.before(next, invocation);
+                interceptor.before(next, invocation); // 前置逻辑
+                // 执行invoke()方法完成远程调用
                 asyncResult = interceptor.intercept(next, invocation);
             } catch (Exception e) {
                 // onError callback
+                // 出现异常时，会触发监听器的onError()方法
                 if (interceptor instanceof ClusterInterceptor.Listener) {
                     ClusterInterceptor.Listener listener = (ClusterInterceptor.Listener) interceptor;
                     listener.onError(e, clusterInvoker, invocation);
                 }
                 throw e;
             } finally {
+                // 执行后置逻辑
                 interceptor.after(next, invocation);
             }
             return asyncResult.whenCompleteWithContext((r, t) -> {
@@ -105,6 +137,7 @@ public abstract class AbstractCluster implements Cluster {
                 if (interceptor instanceof ClusterInterceptor.Listener) {
                     ClusterInterceptor.Listener listener = (ClusterInterceptor.Listener) interceptor;
                     if (t == null) {
+                        // 正常返回时，会调用onMessage()方法触发监听器
                         listener.onMessage(r, clusterInvoker, invocation);
                     } else {
                         listener.onError(t, clusterInvoker, invocation);

@@ -31,6 +31,9 @@ import org.springframework.core.Ordered;
  * The {@link ApplicationListener} for {@link DubboBootstrap}'s lifecycle when the {@link ContextRefreshedEvent}
  * and {@link ContextClosedEvent} raised
  *
+ * 不仅是直接通过 API 启动 Provider 的方式会使用到 DubboBootstrap，
+ * 在 Spring 与 Dubbo 集成的时候也是使用 DubboBootstrap 作为服务发布入口的，
+ * 具体逻辑在 DubboBootstrapApplicationListener 这个 Spring Context 监听器中
  * @since 2.7.5
  */
 public class DubboBootstrapApplicationListener extends OnceApplicationContextEventListener implements Ordered {
@@ -45,17 +48,19 @@ public class DubboBootstrapApplicationListener extends OnceApplicationContextEve
     private final DubboBootstrap dubboBootstrap;
 
     public DubboBootstrapApplicationListener() {
+        // 初始化DubboBootstrap对象
         this.dubboBootstrap = DubboBootstrap.getInstance();
     }
 
     public DubboBootstrapApplicationListener(ApplicationContext applicationContext) {
         super(applicationContext);
-        this.dubboBootstrap = DubboBootstrap.getInstance();
+        this.dubboBootstrap = DubboBootstrap.getInstance();// 初始化DubboBootstrap对象
         DubboBootstrapStartStopListenerSpringAdapter.applicationContext = applicationContext;
     }
 
     @Override
     public void onApplicationContextEvent(ApplicationContextEvent event) {
+        // 监听ContextRefreshedEvent事件和ContextClosedEvent事件
         if (DubboBootstrapStartStopListenerSpringAdapter.applicationContext == null) {
             DubboBootstrapStartStopListenerSpringAdapter.applicationContext = event.getApplicationContext();
         }
@@ -67,6 +72,7 @@ public class DubboBootstrapApplicationListener extends OnceApplicationContextEve
     }
 
     private void onContextRefreshedEvent(ContextRefreshedEvent event) {
+        // 启动DubboBootstrap
         dubboBootstrap.start();
     }
 

@@ -30,6 +30,7 @@ import java.util.Set;
 
 /**
  * ServiceModel and ServiceMetadata are to some extend duplicated with each other.
+ * ServiceModel and ServiceMetadata在某种程度上是相互重复的
  * We should merge them in the future.
  */
 public class ServiceDescriptor {

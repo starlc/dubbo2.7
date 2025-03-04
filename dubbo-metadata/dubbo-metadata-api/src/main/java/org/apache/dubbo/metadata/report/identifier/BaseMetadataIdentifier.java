@@ -16,6 +16,9 @@
  */
 package org.apache.dubbo.metadata.report.identifier;
 
+/**
+ * 在 AbstractMetadataReport 上报元数据的时候，元数据对应的 Key 都是BaseMetadataIdentifier 类型的对象
+ */
 public interface BaseMetadataIdentifier {
 
     String getUniqueKey(KeyTypeEnum keyType);

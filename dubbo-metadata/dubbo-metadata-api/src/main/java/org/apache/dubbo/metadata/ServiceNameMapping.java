@@ -28,7 +28,8 @@ import static org.apache.dubbo.metadata.DynamicConfigurationServiceNameMapping.D
 
 /**
  * The interface for Dubbo service name Mapping
- *
+ * ServiceNameMapping 接口的主要功能是实现 Service ID 到 Service Name 之间的转换，
+ * 底层会依赖配置中心实现数据存储和查询。
  * @since 2.7.5
  */
 @SPI("config")
@@ -36,11 +37,13 @@ public interface ServiceNameMapping {
 
     /**
      * Map the specified Dubbo service interface, group, version and protocol to current Dubbo service name
+     * // 服务接口、group、version、protocol四部分构成了Service ID，并与当前Service Name之间形成映射，记录到配置中心
      */
     void map(URL url);
 
     /**
      * Get the service names from the specified Dubbo service interface, group, version and protocol
+     * // 根据服务接口、group、version、protocol四部分构成的Service ID，查询对应的Service Name
      *
      * @return
      */
@@ -48,7 +51,7 @@ public interface ServiceNameMapping {
 
     /**
      * Get the default extension of {@link ServiceNameMapping}
-     *
+     *  // 获取默认的ServiceNameMapping接口的扩展实现
      * @return non-null {@link ServiceNameMapping}
      * @see DynamicConfigurationServiceNameMapping
      */

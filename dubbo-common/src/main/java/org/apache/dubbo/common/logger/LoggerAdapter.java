@@ -22,6 +22,8 @@ import java.io.File;
 
 /**
  * Logger provider
+ * LoggerAdapter 被 @SPI 注解修饰，是一个扩展接口
+ * LoggerAdapter 对应每个第三方框架的一个相应实现，用于创建相应的 Dubbo Logger 实现对象。
  */
 @SPI
 public interface LoggerAdapter {

@@ -30,6 +30,7 @@ import static org.apache.dubbo.common.utils.StringUtils.replace;
 
 /**
  * 2015/1/27.
+ * 全部类型描述信息，包括方法的参数和字段，如果遇到复杂类型，TypeDefinition 会递归获取复杂类型内部的字段
  */
 public class TypeDefinition implements Serializable {
 

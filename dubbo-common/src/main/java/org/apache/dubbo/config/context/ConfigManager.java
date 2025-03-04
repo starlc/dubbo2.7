@@ -63,6 +63,11 @@ import static org.apache.dubbo.config.AbstractConfig.getTagName;
 import static org.apache.dubbo.config.Constants.PROTOCOLS_PREFIX;
 import static org.apache.dubbo.config.Constants.REGISTRIES_PREFIX;
 
+/**
+ * ConfigManager 用于管理当前 Dubbo 节点中全部 AbstractConfig 对象，
+ * 其中就包括 ConfigCenterConfig 这个实现的对象，我们通过 XML、Annotation
+ * 或是 API 方式添加的配置中心的相关信息（例如，配置中心的地址、端口、协议等），会转换成 ConfigCenterConfig 对象。
+ */
 public class ConfigManager extends LifecycleAdapter implements FrameworkExt {
 
     private static final Logger logger = LoggerFactory.getLogger(ConfigManager.class);

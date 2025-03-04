@@ -36,6 +36,9 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/**
+ * 用于创建对应的 TypeDefinition
+ */
 public class ProtobufTypeBuilder implements TypeBuilder {
     private final Logger logger = LoggerFactory.getLogger(getClass());
     private static final Pattern MAP_PATTERN = Pattern.compile("^java\\.util\\.Map<(\\S+), (\\S+)>$");

@@ -40,6 +40,7 @@ import static org.apache.dubbo.common.URL.buildKey;
  * {@link #getExportedURLs()} and {@link #getSubscribedURLs()} respectively. What's more, {@link MetadataService}
  * also providers the fine-grain methods for the precise queries.
  *
+ * Dubbo 中的每个 ServiceInstance 都会发布 MetadataService 接口供 Consumer 端查询元数据
  * @see WritableMetadataService
  * @since 2.7.5
  */
@@ -70,14 +71,14 @@ public interface MetadataService {
 
     /**
      * Gets the current Dubbo Service name
-     *
+     * // 获取当前ServiceInstance所属服务的名称
      * @return non-null
      */
     String serviceName();
 
     /**
      * Gets the version of {@link MetadataService} that always equals {@link #VERSION}
-     *
+     * // 获取当前MetadataService接口的版本
      * @return non-null
      * @see #VERSION
      */
@@ -87,7 +88,7 @@ public interface MetadataService {
 
     /**
      * the list of String that presents all Dubbo subscribed {@link URL urls}
-     *
+     * // 获取当前ServiceInstance订阅的全部URL
      * @return the non-null read-only {@link SortedSet sorted set} of {@link URL#toFullString() strings} presenting the {@link URL URLs}
      * @see #toSortedStrings(Stream)
      * @see URL#toFullString()
@@ -98,7 +99,7 @@ public interface MetadataService {
 
     /**
      * Get the {@link SortedSet sorted set} of String that presents all Dubbo exported {@link URL urls}
-     *
+     * // 获取当前ServiceInstance发布的全部URL
      * @return the non-null read-only {@link SortedSet sorted set} of {@link URL#toFullString() strings} presenting the {@link URL URLs}
      * @see #toSortedStrings(Stream)
      * @see URL#toFullString()
@@ -109,7 +110,7 @@ public interface MetadataService {
 
     /**
      * Get the {@link SortedSet sorted set} of String that presents the specified Dubbo exported {@link URL urls} by the <code>serviceInterface</code>
-     *
+     * // 根据服务接口查找当前ServiceInstance暴露的全部接口
      * @param serviceInterface The class name of Dubbo service interface
      * @return the non-null read-only {@link SortedSet sorted set} of {@link URL#toFullString() strings} presenting the {@link URL URLs}
      * @see #toSortedStrings(Stream)
@@ -122,7 +123,7 @@ public interface MetadataService {
     /**
      * Get the {@link SortedSet sorted set} of String that presents the specified Dubbo exported {@link URL urls} by the
      * <code>serviceInterface</code> and <code>group</code>
-     *
+     * // 根据服务接口和group两个条件查找当前ServiceInstance暴露的全部接口
      * @param serviceInterface The class name of Dubbo service interface
      * @param group            the Dubbo Service Group (optional)
      * @return the non-null read-only {@link SortedSet sorted set} of {@link URL#toFullString() strings} presenting the {@link URL URLs}
@@ -136,7 +137,7 @@ public interface MetadataService {
     /**
      * Get the {@link SortedSet sorted set} of String that presents the specified Dubbo exported {@link URL urls} by the
      * <code>serviceInterface</code>, <code>group</code> and <code>version</code>
-     *
+     * // 根据服务接口、group和version三个条件查找当前ServiceInstance暴露的全部接口
      * @param serviceInterface The class name of Dubbo service interface
      * @param group            the Dubbo Service Group (optional)
      * @param version          the Dubbo Service Version (optional)
@@ -151,7 +152,7 @@ public interface MetadataService {
     /**
      * Get the sorted set of String that presents the specified Dubbo exported {@link URL urls} by the
      * <code>serviceInterface</code>, <code>group</code>, <code>version</code> and <code>protocol</code>
-     *
+     * // 根据服务接口、group、version和protocol四个条件查找当前ServiceInstance暴露的全部接口
      * @param serviceInterface The class name of Dubbo service interface
      * @param group            the Dubbo Service Group (optional)
      * @param version          the Dubbo Service Version (optional)
@@ -164,7 +165,7 @@ public interface MetadataService {
 
     /**
      * Interface definition.
-     *
+     * // 根据指定条件查询ServiceDefinition
      * @return
      */
     default String getServiceDefinition(String interfaceName, String version, String group) {

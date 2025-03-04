@@ -20,10 +20,17 @@ import java.util.NoSuchElementException;
 
 /**
  * Configuration interface, to fetch the value for the specified key.
+ *
+ * Configuration 接口是 Dubbo 中所有配置的基础接口，其中定义了根据指定 Key 获取对应配置值的相关方法
+ *
+ * 针对不同的 boolean、int、String 返回值都有对应的 get*() 方法，同时还提供了带有默认值的 get*() 方法。
+ *  get() 方法底层首先调用 getInternalProperty() 方法获取配置值，
+ *  然后调用 convert() 方法将获取到的配置值转换成返回值的类型之后返回
  */
 public interface Configuration {
     /**
      * Get a string associated with the given configuration key.
+     * 根据配置key获取关联的String
      *
      * @param key The configuration key.
      * @return The associated string.
@@ -36,6 +43,7 @@ public interface Configuration {
      * Get a string associated with the given configuration key.
      * If the key doesn't map to an existing object, the default value
      * is returned.
+     * 根据配置key获取关联的String，如果没有匹配项，返回默认值
      *
      * @param key          The configuration key.
      * @param defaultValue The default value.
@@ -123,6 +131,11 @@ public interface Configuration {
         return value != null ? value : defaultValue;
     }
 
+    /**
+     * 根据key获取内部Property
+     * @param key
+     * @return
+     */
     Object getInternalProperty(String key);
 
     /**
@@ -137,8 +150,17 @@ public interface Configuration {
     }
 
 
+    /**
+     * 转换
+     * @param cls
+     * @param key
+     * @param defaultValue
+     * @return
+     * @param <T>
+     */
     default <T> T convert(Class<T> cls, String key, T defaultValue) {
         // we only process String properties for now
+        // 因为现在的properties 全都是String类型的，所以这里可以强转
         String value = (String) getProperty(key);
 
         if (value == null) {

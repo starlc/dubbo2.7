@@ -31,6 +31,7 @@ import org.apache.dubbo.common.extension.SPI;
  * Note Router has a different behaviour since 2.7.0, for each type of Router, there will only has one Router instance
  * for each service. See {@link CacheableRouterFactory} and {@link RouterChain} for how to extend a new Router or how
  * the Router instances are loaded.
+ * RouterFactory
  */
 @SPI
 public interface RouterFactory {
@@ -38,7 +39,7 @@ public interface RouterFactory {
     /**
      * Create router.
      * Since 2.7.0, most of the time, we will not use @Adaptive feature, so it's kept only for compatibility.
-     *
+     * 动态生成的适配器会根据protocol参数选择扩展实现
      * @param url url
      * @return router instance
      */

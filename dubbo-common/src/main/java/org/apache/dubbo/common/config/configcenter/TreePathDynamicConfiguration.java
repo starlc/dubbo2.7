@@ -86,7 +86,9 @@ public abstract class TreePathDynamicConfiguration extends AbstractDynamicConfig
 
     @Override
     public final boolean publishConfig(String key, String group, String content) {
+        // buildPathKey()方法中会添加rootPath和group两部分信息到Key中
         String pathKey = buildPathKey(group, key);
+        // 在Zookeeper中创建对应ZNode节点用来存储配置信息
         return Boolean.TRUE.equals(execute(() -> doPublishConfig(pathKey, content), getDefaultTimeout()));
     }
 

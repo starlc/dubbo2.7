@@ -30,14 +30,14 @@ import java.util.Properties;
 public interface OrderedPropertiesProvider {
     /**
      * order
-     *
+     * // 用于排序
      * @return
      */
     int priority();
 
     /**
      * load the properties
-     *
+     * // 获取Properties配置
      * @return
      */
     Properties initProperties();

@@ -30,6 +30,14 @@ import java.util.List;
  *
  * @see org.apache.dubbo.rpc.cluster.Cluster#join(Directory)
  * @see org.apache.dubbo.rpc.cluster.Directory#list(Invocation)
+ * 抽象的是路由器，请求经过 Router 的时候，会按照用户指定的规则匹配出符合条件的 Provider。
+ *
+ * Router 的主要功能就是根据用户配置的路由规则以及请求携带的信息，过滤出符合条件的 Invoker 集合，
+ * 供后续负载均衡逻辑使用。在上一课时介绍 RegistryDirectory 实现的时候，
+ * 我们就已经看到了 RouterChain 这个 Router 链的存在，但是没有深入分析，下面我们就来深入 Router 进行分析。
+ *
+ * Router 决定了一次 Dubbo 调用的目标服务，Router 接口的每个实现类代表了一个路由规则，当 Consumer 访问 Provider 时，
+ * Dubbo 根据路由规则筛选出合适的 Provider 列表，之后通过负载均衡算法再次进行筛选。
  */
 public interface Router extends Comparable<Router> {
 

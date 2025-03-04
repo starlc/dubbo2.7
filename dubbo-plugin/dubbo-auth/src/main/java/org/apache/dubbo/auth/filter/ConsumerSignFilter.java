@@ -30,7 +30,7 @@ import org.apache.dubbo.rpc.RpcException;
 
 /**
  * The ConsumerSignFilter
- *
+ * 消费端生成token
  * @see org.apache.dubbo.rpc.Filter
  */
 @Activate(group = CommonConstants.CONSUMER, order = -10000)

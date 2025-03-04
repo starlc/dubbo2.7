@@ -38,12 +38,27 @@ import java.util.concurrent.TimeUnit;
  */
 public class ZookeeperDynamicConfiguration extends TreePathDynamicConfiguration {
 
+    /**
+     * 用于执行监听器的线程池。
+     */
     private Executor executor;
     // The final root path would be: /configRootPath/"config"
+    /**
+     * 以 Zookeeper 作为配置中心时，配置也是以 ZNode 形式存储的，rootPath 记录了所有配置节点的根路径。
+     */
     private String rootPath;
+    /**
+     * 与 Zookeeper 集群交互的客户端
+     */
     private final ZookeeperClient zkClient;
 
+    /**
+     * 用于监听配置变化的监听器。
+     */
     private CacheListener cacheListener;
+    /**
+     * 配置中心对应的 URL 对象。
+     */
     private URL url;
     private static final int DEFAULT_ZK_EXECUTOR_THREADS_NUM = 1;
     private static final int DEFAULT_QUEUE = 10000;
@@ -52,17 +67,23 @@ public class ZookeeperDynamicConfiguration extends TreePathDynamicConfiguration 
     ZookeeperDynamicConfiguration(URL url, ZookeeperTransporter zookeeperTransporter) {
         super(url);
         this.url = url;
+        // 根据URL中的config.namespace参数(默认值为dubbo)，确定配置中心ZNode的根路径
         rootPath = getRootPath(url);
 
+        // 初始化initializedLatch以及cacheListener，
+        // 在cacheListener注册成功之后，会调用cacheListener.countDown()方法
+        //这个版本的就注册监听事件已经放在别的地方
         this.cacheListener = new CacheListener(rootPath);
 
         final String threadName = this.getClass().getSimpleName();
+        // 初始化executor字段，用于执行监听器的逻辑 单线程的线程池
         this.executor = new ThreadPoolExecutor(DEFAULT_ZK_EXECUTOR_THREADS_NUM, DEFAULT_ZK_EXECUTOR_THREADS_NUM,
                 THREAD_KEEP_ALIVE_TIME, TimeUnit.MILLISECONDS,
-                new LinkedBlockingQueue<Runnable>(DEFAULT_QUEUE),
+                new LinkedBlockingQueue<Runnable>(DEFAULT_QUEUE),//10000
                 new NamedThreadFactory(threadName, true),
                 new AbortPolicyWithReport(threadName, url));
 
+        // 初始化Zookeeper客户端
         zkClient = zookeeperTransporter.connect(url);
         boolean isConnected = zkClient.isConnected();
         if (!isConnected) {
@@ -72,10 +93,12 @@ public class ZookeeperDynamicConfiguration extends TreePathDynamicConfiguration 
 
     /**
      * @param key e.g., {service}.configurators, {service}.tagrouters, {group}.dubbo.properties
+     * ZookeeperDynamicConfiguration 中读取配置、写入配置的相关操作
      * @return
      */
     @Override
     public String getInternalProperty(String key) {
+        // 直接从Zookeeper中读取对应的Key
         return zkClient.getContent(buildPathKey("", key));
     }
 
@@ -93,6 +116,7 @@ public class ZookeeperDynamicConfiguration extends TreePathDynamicConfiguration 
 
     @Override
     protected boolean doPublishConfig(String pathKey, String content) throws Exception {
+        // 在Zookeeper中创建对应ZNode节点用来存储配置信息
         zkClient.create(pathKey, content, false);
         return true;
     }

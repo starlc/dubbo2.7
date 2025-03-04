@@ -77,6 +77,13 @@ public class ApplicationModel {
 
     private static final ExtensionLoader<FrameworkExt> LOADER = ExtensionLoader.getExtensionLoader(FrameworkExt.class);
 
+    /**
+     * 加载
+     * ConfigManager 什么也没做
+     * Environment
+     * ServiceRepository
+     * 然后执行他们的初始化方法
+     */
     public static void initFrameworkExts() {
         Set<FrameworkExt> exts = ExtensionLoader.getExtensionLoader(FrameworkExt.class).getSupportedExtensionInstances();
         for (FrameworkExt ext : exts) {

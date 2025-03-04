@@ -332,6 +332,11 @@ public abstract class AbstractInterfaceConfig extends AbstractMethodConfig {
         return CollectionUtils.isEmpty(registries) && StringUtils.isEmpty(registryIds);
     }
 
+    /**
+     * 设置混合配置 从接口配置信息中读取信息设置
+     * 包括 当前serviceConfig的 application/module/registries（注册中心）/registryIds/monitor
+     * @param interfaceConfig
+     */
     public void completeCompoundConfigs(AbstractInterfaceConfig interfaceConfig) {
         if (interfaceConfig != null) {
             if (application == null) {

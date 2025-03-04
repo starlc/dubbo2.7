@@ -32,6 +32,12 @@ import static org.apache.dubbo.rpc.cluster.Constants.RULE_KEY;
 import static org.apache.dubbo.rpc.cluster.Constants.RUNTIME_KEY;
 import static org.apache.dubbo.rpc.cluster.Constants.TYPE_KEY;
 
+/**
+ * FileRouterFactory 是 ScriptRouterFactory 的装饰器，其扩展名为 file，FileRouterFactory
+ * 在 ScriptRouterFactory 基础上增加了读取文件的能力。
+ * 我们可以将 ScriptRouter 使用的路由规则保存到文件中，然后在 URL 中指定文件路径，
+ * FileRouterFactory 从中解析到该脚本文件的路径并进行读取，调用 ScriptRouterFactory 去创建相应的 ScriptRouter 对象。
+ */
 public class FileRouterFactory implements RouterFactory {
 
     public static final String NAME = "file";
@@ -47,15 +53,17 @@ public class FileRouterFactory implements RouterFactory {
         try {
             // Transform File URL into Script Route URL, and Load
             // file:///d:/path/to/route.js?router=script ==> script:///d:/path/to/route.js?type=js&rule=<file-content>
+            // 默认使用script协议
             String protocol = url.getParameter(ROUTER_KEY, ScriptRouterFactory.NAME); // Replace original protocol (maybe 'file') with 'script'
             String type = null; // Use file suffix to config script type, e.g., js, groovy ...
             String path = url.getPath();
-            if (path != null) {
+            if (path != null) {// 获取脚本文件的语言类型
                 int i = path.lastIndexOf('.');
                 if (i > 0) {
                     type = path.substring(i + 1);
                 }
             }
+            // 读取脚本文件中的内容
             String rule = IOUtils.read(new FileReader(new File(url.getAbsolutePath())));
 
             // FIXME: this code looks useless
@@ -67,6 +75,7 @@ public class FileRouterFactory implements RouterFactory {
                     .addParameterAndEncoded(RULE_KEY, rule)
                     .build();
 
+            // 获取script对应的Router实现
             return routerFactory.getRouter(script);
         } catch (IOException e) {
             throw new IllegalStateException(e.getMessage(), e);

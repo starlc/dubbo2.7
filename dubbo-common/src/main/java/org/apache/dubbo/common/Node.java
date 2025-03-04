@@ -18,25 +18,28 @@ package org.apache.dubbo.common;
 
 /**
  * Node. (API/SPI, Prototype, ThreadSafe)
+ * 在 Dubbo 中，一般使用 Node 这个接口来抽象节点的概念。
+ * Node不仅可以表示 Provider 和 Consumer 节点，还可以表示注册中心节点。Node 接口中定义了三个非常基础的方法
  */
 public interface Node {
 
     /**
      * get url.
-     *
+     * 返回表示当前节点的 URL；
      * @return url.
      */
     URL getUrl();
 
     /**
      * is available.
-     *
+     * 检测当前节点是否可用；
      * @return available.
      */
     boolean isAvailable();
 
     /**
      * destroy.
+     * 负责销毁当前节点并释放底层资源。
      */
     void destroy();
 

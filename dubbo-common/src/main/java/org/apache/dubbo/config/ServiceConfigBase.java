@@ -191,6 +191,7 @@ public abstract class ServiceConfigBase<T> extends AbstractServiceConfig {
     }
 
     public void checkDefault() throws IllegalStateException {
+        //根据provider是否为空 创建一个ProviderConfig对象
         if (provider == null) {
             provider = ApplicationModel.getConfigManager()
                     .getDefaultProvider()
@@ -214,6 +215,9 @@ public abstract class ServiceConfigBase<T> extends AbstractServiceConfig {
         return CollectionUtils.isEmpty(protocols) && StringUtils.isEmpty(protocolIds);
     }
 
+    /**
+     * 完成混合配置  包括 application、注册中心地址、协议、协议id、配置中心等等
+     */
     public void completeCompoundConfigs() {
         super.completeCompoundConfigs(provider);
         if (provider != null) {

@@ -48,6 +48,7 @@ public class Application {
                 .reference(reference)
                 .start();
 
+        //这些新建的 ReferenceConfig 对象会通过 DubboBootstrap.reference() 方法添加到 ConfigManager 中进行管理
         DemoService demoService = ReferenceConfigCache.getCache().get(reference);
         String message = demoService.sayHello("dubbo");
         System.out.println(message);

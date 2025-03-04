@@ -89,8 +89,11 @@ public class NacosDynamicConfiguration implements DynamicConfiguration {
     private final ConcurrentMap<String, NacosConfigListener> watchListenerMap;
 
     NacosDynamicConfiguration(URL url) {
+        //设置nacos的配置信息
         this.nacosProperties = buildNacosProperties(url);
+        //设置nacos配置中心
         this.configService = buildConfigService(url);
+        //设置Http工具类
         this.httpAgent = getHttpAgent(configService.getConfigService());
         watchListenerMap = new ConcurrentHashMap<>();
     }
@@ -108,6 +111,11 @@ public class NacosDynamicConfiguration implements DynamicConfiguration {
         return new NacosConfigServiceWrapper(configService);
     }
 
+    /**
+     * 卧槽 还能这么玩
+     * @param configService
+     * @return
+     */
     private HttpAgent getHttpAgent(ConfigService configService) {
         HttpAgent agent = null;
         try {
@@ -122,6 +130,7 @@ public class NacosDynamicConfiguration implements DynamicConfiguration {
 
     private Properties buildNacosProperties(URL url) {
         Properties properties = new Properties();
+        //设置服务端地址
         setServerAddr(url, properties);
         setProperties(url, properties);
         return properties;
@@ -144,7 +153,9 @@ public class NacosDynamicConfiguration implements DynamicConfiguration {
 
     private static void setProperties(URL url, Properties properties) {
         // Get the parameters from constants
+        //获取常量PropertyKeyConst的配置
         Map<String, String> parameters = url.getParameters(of(PropertyKeyConst.class));
+        //添加用户名和密码
         if (StringUtils.isNotEmpty(url.getUsername())){
             properties.put(USERNAME, url.getUsername());
         }

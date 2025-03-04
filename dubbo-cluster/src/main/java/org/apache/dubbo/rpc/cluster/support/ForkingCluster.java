@@ -22,7 +22,7 @@ import org.apache.dubbo.rpc.cluster.support.wrapper.AbstractCluster;
 
 /**
  * {@link ForkingClusterInvoker}
- *
+ * ForkingCluster 的扩展名称为 forking，在其 doJoin() 方法中，会创建一个 ForkingClusterInvoker 对象
  */
 public class ForkingCluster extends AbstractCluster {
 

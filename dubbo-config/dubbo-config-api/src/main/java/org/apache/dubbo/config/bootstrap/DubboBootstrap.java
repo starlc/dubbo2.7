@@ -122,6 +122,10 @@ import static org.apache.dubbo.remoting.Constants.CLIENT_KEY;
  * Designed as singleton because some classes inside Dubbo, such as ExtensionLoader, are designed only for one instance per process.
  *
  * @since 2.7.5
+ *
+ * 不仅是直接通过 API 启动 Provider 的方式会使用到 DubboBootstrap，
+ * 在 Spring 与 Dubbo 集成的时候也是使用 DubboBootstrap 作为服务发布入口的，
+ * 具体逻辑在 DubboBootstrapApplicationListener 这个 Spring Context 监听器中
  */
 public class DubboBootstrap {
 
@@ -516,17 +520,29 @@ public class DubboBootstrap {
             return;
         }
 
+        //
         ApplicationModel.initFrameworkExts();
 
         startConfigCenter();
 
+        /**
+         * 根据前文更新后的 externalConfigurationMap 和 appExternalConfigurationMap 配置信息，
+         * 确定是否配置了额外的注册中心或 Protocol，
+         * 如果有，则在此处转换成 RegistryConfig 和 ProtocolConfig，并记录到 ConfigManager 中，等待后续逻辑使用。
+         */
         loadRemoteConfigs();
 
+        /**
+         * 完成 ProviderConfig、ConsumerConfig、MetadataReportConfig 等一系列 AbstractConfig 的检查和初始化
+         */
         checkGlobalConfigs();
 
         // @since 2.7.8
         startMetadataCenter();
 
+        /**
+         * 初始化 MetadataReport、MetadataReportInstance 以及 MetadataService、MetadataServiceExporter
+         */
         initMetadataService();
 
         if (logger.isInfoEnabled()) {
@@ -592,14 +608,18 @@ public class DubboBootstrap {
         ConfigValidationUtils.validateSslConfig(getSsl());
     }
 
+    /**
+     * 完成配置中心的初始化之后，后续需要 DynamicConfiguration 的地方直接从 Environment 中获取即可，
+     * 例如，DynamicConfigurationServiceNameMapping 就是依赖 DynamicConfiguration 实现 Service ID 与 Service Name 映射的管理。
+     */
     private void startConfigCenter() {
-
+        //检测当前 Dubbo 是否要将注册中心也作为一个配置中心使用（常见的注册中心，都可以直接作为配置中心使用，这样可以降低运维成本）
         useRegistryAsConfigCenterIfNecessary();
 
         Collection<ConfigCenterConfig> configCenters = configManager.getConfigCenters();
 
         // check Config Center
-        if (CollectionUtils.isEmpty(configCenters)) {
+        if (CollectionUtils.isEmpty(configCenters)) {// 未指定配置中心
             ConfigCenterConfig configCenterConfig = new ConfigCenterConfig();
             configCenterConfig.refresh();
             if (configCenterConfig.isValid()) {
@@ -607,20 +627,30 @@ public class DubboBootstrap {
                 configCenters = configManager.getConfigCenters();
             }
         } else {
-            for (ConfigCenterConfig configCenterConfig : configCenters) {
-                configCenterConfig.refresh();
-                ConfigValidationUtils.validateConfigCenterConfig(configCenterConfig);
+            for (ConfigCenterConfig configCenterConfig : configCenters) {// 可能配置了多个配置中心
+                configCenterConfig.refresh();// 刷新配置
+                ConfigValidationUtils.validateConfigCenterConfig(configCenterConfig);// 检查配置中心的配置是否合法
             }
         }
 
         if (CollectionUtils.isNotEmpty(configCenters)) {
+            // 创建CompositeDynamicConfiguration对象，用于组装多个DynamicConfiguration对象
             CompositeDynamicConfiguration compositeDynamicConfiguration = new CompositeDynamicConfiguration();
             for (ConfigCenterConfig configCenter : configCenters) {
+                // 根据ConfigCenterConfig创建相应的DynamicConfig对象，并添加到CompositeDynamicConfiguration中
+                //!!! 通过 ConfigCenterConfig.refresh() 方法确定了所有配置中心的最终配置之后，
+                // 接下来就会对每个配置中心执行 prepareEnvironment() 方法，得到对应的 DynamicConfiguration 对象
                 compositeDynamicConfiguration.addConfiguration(prepareEnvironment(configCenter));
             }
+            // 将CompositeDynamicConfiguration记录到Environment中的dynamicConfiguration字段
+            /**
+             * 完成 DynamicConfiguration 的创建之后，DubboBootstrap 会将多个配置中心对应的 DynamicConfiguration
+             * 对象封装成一个 CompositeDynamicConfiguration 对象，并记录到 Environment.dynamicConfiguration 字段中，等待后续使用。
+             * 另外，还会调用全部 AbstractConfig 的 refresh() 方法（即根据最新的配置更新各个 AbstractConfig 对象的字段）。
+             */
             environment.setDynamicConfiguration(compositeDynamicConfiguration);
         }
-        configManager.refreshAll();
+        configManager.refreshAll();// 刷新所有AbstractConfig配置
     }
 
     private void startMetadataCenter() {
@@ -655,14 +685,17 @@ public class DubboBootstrap {
      */
     private void useRegistryAsConfigCenterIfNecessary() {
         // we use the loading status of DynamicConfiguration to decide whether ConfigCenter has been initiated.
+        // 如果当前配置中心已经初始化完成，则不会将注册中心作为配置中心
         if (environment.getDynamicConfiguration().isPresent()) {
             return;
         }
 
+        // 明确指定了配置中心的配置，哪怕配置中心初始化失败，也不会将注册中心作为配置中心
         if (CollectionUtils.isNotEmpty(configManager.getConfigCenters())) {
             return;
         }
 
+        // 从ConfigManager中获取注册中心的配置（即RegistryConfig），并转换成配置中心的配置（即ConfigCenterConfig）
         configManager
                 .getDefaultRegistries()
                 .stream()
@@ -705,6 +738,7 @@ public class DubboBootstrap {
         if (registryConfig.getTimeout() != null) {
             cc.setTimeout(registryConfig.getTimeout().longValue());
         }
+        // 这里优先级较低
         cc.setHighestPriority(false);
         return cc;
     }
@@ -876,26 +910,31 @@ public class DubboBootstrap {
      * Start the bootstrap
      */
     public DubboBootstrap start() {
-        if (started.compareAndSet(false, true)) {
+        if (started.compareAndSet(false, true)) {// CAS操作，保证启动一次
             destroyed.set(false);
-            ready.set(false);
+            ready.set(false); // 用于判断当前节点是否已经启动完毕，在后面的Dubbo QoS中会使用到该字段
+            // 初始化一些基础组件，例如，配置中心相关组件、事件监听、元数据相关组件，这些组件在后面将会进行介绍
             initialize();
             if (logger.isInfoEnabled()) {
                 logger.info(NAME + " is starting...");
             }
             // 1. export Dubbo Services
+            // 重点：发布服务
             exportServices();
 
             // Not only provider register
             if (!isOnlyRegisterProvider() || hasExportedServices()) {
                 // 2. export MetadataService
+                // 用于暴露本地元数据服务，后面介绍元数据的时候会深入介绍该部分的内容
                 exportMetadataService();
                 //3. Register the local ServiceInstance if required
+                // 用于将服务实例注册到专用于服务发现的注册中心
                 registerServiceInstance();
             }
-
+            // 处理Consumer的ReferenceConfig
             referServices();
             if (asyncExportingFutures.size() > 0) {
+                // 异步发布服务，会启动一个线程监听发布是否完成，完成之后会将ready设置为true
                 new Thread(() -> {
                     try {
                         this.awaitFinish();
@@ -909,7 +948,7 @@ public class DubboBootstrap {
                     ExtensionLoader<DubboBootstrapStartStopListener> exts = getExtensionLoader(DubboBootstrapStartStopListener.class);
                     exts.getSupportedExtensionInstances().forEach(ext -> ext.onStart(this));
                 }).start();
-            } else {
+            } else {// 同步发布服务成功之后，会将ready设置为true
                 ready.set(true);
                 if (logger.isInfoEnabled()) {
                     logger.info(NAME + " is ready.");
@@ -1017,12 +1056,20 @@ public class DubboBootstrap {
     }
     /* serve for builder apis, end */
 
+    /**
+     * 通过 ConfigCenterConfig.refresh() 方法确定了所有配置中心的最终配置之后，
+     * 接下来就会对每个配置中心执行 prepareEnvironment() 方法，得到对应的 DynamicConfiguration 对象
+     * @param configCenter
+     * @return
+     */
     private DynamicConfiguration prepareEnvironment(ConfigCenterConfig configCenter) {
-        if (configCenter.isValid()) {
+        if (configCenter.isValid()) {// 检查ConfigCenterConfig是否合法
             if (!configCenter.checkOrUpdateInited()) {
-                return null;
+                return null;// 检查ConfigCenterConfig是否已初始化，这里不能重复初始化
             }
+            // 根据ConfigCenterConfig中的各个字段，拼接出配置中心的URL，创建对应的DynamicConfiguration对象
             DynamicConfiguration dynamicConfiguration = getDynamicConfiguration(configCenter.toUrl());
+            // 从配置中心获取externalConfiguration和appExternalConfiguration，并进行覆盖
             String configContent = dynamicConfiguration.getProperties(configCenter.getConfigFile(), configCenter.getGroup());
 
             String appGroup = getApplication().getName();
@@ -1034,6 +1081,7 @@ public class DubboBootstrap {
                         );
             }
             try {
+                // 更新Environment
                 environment.setConfigCenterFirst(configCenter.isHighestPriority());
                 Map<String, String> globalRemoteProperties = parseProperties(configContent);
                 if (CollectionUtils.isEmptyMap(globalRemoteProperties)) {
@@ -1049,6 +1097,7 @@ public class DubboBootstrap {
             } catch (IOException e) {
                 throw new IllegalStateException("Failed to parse configurations from Config Center.", e);
             }
+            // 返回通过该ConfigCenterConfig创建的DynamicConfiguration对象
             return dynamicConfiguration;
         }
         return null;
@@ -1068,12 +1117,13 @@ public class DubboBootstrap {
     }
 
     private void exportServices() {
+        // 从配置管理器中获取到所有的要暴露的服务配置，一个接口类对应一个ServiceConfigBase实例
         configManager.getServices().forEach(sc -> {
             // TODO, compatible with ServiceConfig.export()
             ServiceConfig serviceConfig = (ServiceConfig) sc;
             serviceConfig.setBootstrap(this);
 
-            if (exportAsync) {
+            if (exportAsync) {// 异步模式，获取一个线程池来异步执行服务发布逻辑
                 ExecutorService executor = executorRepository.getServiceExporterExecutor();
                 Future<?> future = executor.submit(() -> {
                     try {
@@ -1082,6 +1132,7 @@ public class DubboBootstrap {
                         logger.error("export async catch error : " + t.getMessage(), t);
                     }
                 });
+                // 记录异步发布的Future
                 asyncExportingFutures.add(future);
             } else {
                 exportService(serviceConfig);
@@ -1118,6 +1169,9 @@ public class DubboBootstrap {
 
     private void referServices() {
         if (cache == null) {
+            //首先是 ReferenceConfigCache.getCache() 这个静态方法，会在 CACHE_HOLDER 集合中添加一个 Key
+            // 为“DEFAULT”的 ReferenceConfigCache 对象（使用默认的 KeyGenerator 实现），
+            // 它将作为默认的 ReferenceConfigCache 对象
             cache = ReferenceConfigCache.getCache();
         }
 
@@ -1126,15 +1180,15 @@ public class DubboBootstrap {
             ReferenceConfig referenceConfig = (ReferenceConfig) rc;
             referenceConfig.setBootstrap(this);
 
-            if (rc.shouldInit()) {
-                if (referAsync) {
+            if (rc.shouldInit()) {// 检测ReferenceConfig是否已经初始化
+                if (referAsync) {// 异步
                     CompletableFuture<Object> future = ScheduledCompletableFuture.submit(
                             executorRepository.getServiceExporterExecutor(),
                             () -> cache.get(rc)
                     );
                     asyncReferringFutures.add(future);
                 } else {
-                    cache.get(rc);
+                    cache.get(rc);// 同步
                 }
             }
         });

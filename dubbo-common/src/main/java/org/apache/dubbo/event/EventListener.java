@@ -36,6 +36,9 @@ import static org.apache.dubbo.common.utils.ReflectUtils.findParameterizedTypes;
  * @see Event 
  * @see java.util.EventListener
  * @since 2.7.5
+ *
+ * Dubbo 中 EventListener 接口的定义，其中关注三个方法：
+ * onEvent() 方法、getPriority() 方法和 findEventType() 工具方法。
  */
 @SPI
 @FunctionalInterface
@@ -43,7 +46,7 @@ public interface EventListener<E extends Event> extends java.util.EventListener,
 
     /**
      * Handle a {@link Event Dubbo Event} when it's be published
-     *
+     * // 当发生该EventListener对象关注的事件时，该EventListener的onEvent()方法会被调用
      * @param event a {@link Event Dubbo Event}
      */
     void onEvent(E event);
@@ -54,6 +57,7 @@ public interface EventListener<E extends Event> extends java.util.EventListener,
      * @return the value is more greater, the priority is more lower.
      * {@link Integer#MIN_VALUE} indicates the highest priority. The default value is {@link Integer#MAX_VALUE}.
      * The comparison rule , refer to {@link #compareTo}.
+     * // 当前EventListener对象被调用的优先级
      */
     default int getPriority() {
         return NORMAL_PRIORITY;
@@ -64,6 +68,7 @@ public interface EventListener<E extends Event> extends java.util.EventListener,
      *
      * @param listener the {@link Class class} of {@link EventListener Dubbo event listener}
      * @return <code>null</code> if not found
+     * // 获取传入的EventListener对象监听何种Event事件
      */
     static Class<? extends Event> findEventType(EventListener<?> listener) {
         return findEventType(listener.getClass());
@@ -74,6 +79,8 @@ public interface EventListener<E extends Event> extends java.util.EventListener,
      *
      * @param listenerClass the {@link Class class} of {@link EventListener Dubbo event listener}
      * @return <code>null</code> if not found
+     *
+     * // 检测传入listenerClass是否为Dubbo的EventListener接口实现
      */
     static Class<? extends Event> findEventType(Class<?> listenerClass) {
         Class<? extends Event> eventType = null;
@@ -81,9 +88,10 @@ public interface EventListener<E extends Event> extends java.util.EventListener,
         if (listenerClass != null && EventListener.class.isAssignableFrom(listenerClass)) {
             eventType = findParameterizedTypes(listenerClass)
                     .stream()
-                    .map(EventListener::findEventType)
+                    .map(EventListener::findEventType)// 获取listenerClass中定义的Event泛型
                     .filter(Objects::nonNull)
                     .findAny()
+                    // 获取listenerClass父类中定义的Event泛型
                     .orElse((Class) findEventType(listenerClass.getSuperclass()));
         }
 

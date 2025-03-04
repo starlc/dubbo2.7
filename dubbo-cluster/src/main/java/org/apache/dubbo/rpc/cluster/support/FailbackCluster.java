@@ -22,7 +22,8 @@ import org.apache.dubbo.rpc.cluster.support.wrapper.AbstractCluster;
 
 /**
  * {@link FailbackClusterInvoker}
- *
+ * FailbackCluster 是 Cluster 接口的另一个扩展实现，扩展名是 failback，
+ * 其 doJoin() 方法中创建的 Invoker 对象是 FailbackClusterInvoker 类型
  */
 public class FailbackCluster extends AbstractCluster {
 

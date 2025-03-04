@@ -1,0 +1,185 @@
+@startuml
+title Dubbo服务引用完整流程
+
+box "Service Reference" #LightBlue
+participant "ReferenceBean" as refBean
+participant "ReferenceConfig" as config
+participant "ReferenceConfigCache" as cache
+participant "ConfigCenter" as configCenter
+participant "MetadataReport" as metadata
+participant "RegistryProtocol" as registry
+participant "DubboProtocol" as protocol
+participant "ProxyFactory" as proxyFactory
+participant "Cluster" as cluster
+participant "Directory" as directory
+participant "Router" as router
+participant "LoadBalance" as loadBalance
+participant "ZookeeperRegistry" as zk
+end box
+
+-> refBean: getObject()
+activate refBean
+
+refBean -> cache: get()
+activate cache
+note right
+  1. 缓存服务引用
+  2. 防止重复引用
+  3. 管理引用生命周期
+end note
+
+cache -> config: get()
+activate config
+
+== 配置检查和处理阶段 ==
+config -> config: checkAndUpdateSubConfigs()
+note right
+  1. 检查接口配置
+  2. 检查消费者配置
+  3. 检查注册中心配置
+  4. 检查协议配置
+end note
+
+== 配置中心处理阶段 ==
+config -> configCenter: getConfig()
+activate configCenter
+note right
+  1. 获取外部配置
+  2. 动态配置更新
+  3. 配置变更监听
+end note
+
+configCenter --> config
+deactivate configCenter
+
+== 元数据中心处理阶段 ==
+config -> metadata: getServiceDefinition()
+activate metadata
+note right
+  1. 获取服务定义
+  2. 获取方法信息
+  3. 校验接口兼容性
+end note
+
+metadata --> config
+deactivate metadata
+
+== 注册中心订阅阶段 ==
+config -> registry: refer()
+activate registry
+
+registry -> zk: register()
+activate zk
+note right
+  1. 注册消费者信息
+  2. 订阅提供者变更
+  3. 订阅配置变更
+  4. 添加状态监听器:
+     - RECONNECTED: 重新订阅
+     - NEW_SESSION: 重新注册
+end note
+
+zk --> registry
+deactivate zk
+
+registry -> directory: subscribe()
+activate directory
+note right
+  1. 建立动态目录
+  2. 监听地址变更
+  3. 刷新服务列表
+end note
+
+directory -> router: route()
+activate router
+note right
+  1. 路由规则解析
+  2. 服务路由判断
+  3. 地址过滤
+end note
+
+router --> directory
+deactivate router
+
+directory -> loadBalance: select()
+activate loadBalance
+note right
+  1. 负载均衡策略
+  2. 权重计算
+  3. 选择服务节点
+end note
+
+loadBalance --> directory
+deactivate loadBalance
+
+directory --> registry
+deactivate directory
+
+== 服务代理生成阶段 ==
+registry -> cluster: join()
+activate cluster
+note right
+  1. 创建集群Invoker
+  2. 容错策略配置
+  3. 失败重试处理
+end note
+
+cluster -> protocol: refer()
+activate protocol
+note right
+  1. 创建客户端
+  2. 建立连接
+  3. 初始化Channel
+end note
+
+protocol --> cluster
+deactivate protocol
+
+cluster -> proxyFactory: getProxy()
+activate proxyFactory
+note right
+  1. 生成服务代理
+  2. 方法拦截器
+  3. 参数类型转换
+end note
+
+proxyFactory --> cluster
+deactivate proxyFactory
+
+cluster --> registry
+deactivate cluster
+
+registry --> config
+deactivate registry
+
+config --> cache
+deactivate config
+
+cache --> refBean
+deactivate cache
+
+<-- refBean
+deactivate refBean
+
+note right of directory
+  服务目录职责:
+  1. 维护可用服务列表
+  2. 动态更新服务地址
+  3. 服务路由和过滤
+end note
+
+note right of cluster
+  集群层职责:
+  1. 容错策略实现
+  2. 负载均衡选择
+  3. 请求失败重试
+end note
+
+note right of protocol
+  远程调用职责:
+  1. 网络连接管理
+  2. 消息编解码
+  3. 请求响应处理
+end note
+
+@enduml

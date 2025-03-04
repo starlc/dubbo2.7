@@ -23,7 +23,7 @@ import org.apache.dubbo.rpc.cluster.Directory;
 
 /**
  * AvailableCluster
- *
+ * AvailableCluster 这个 Cluster 实现类的扩展名为 available，在其 join() 方法中创建的是 AvailableClusterInvoker 类型的 Invoker 对象
  */
 public class AvailableCluster implements Cluster {
 

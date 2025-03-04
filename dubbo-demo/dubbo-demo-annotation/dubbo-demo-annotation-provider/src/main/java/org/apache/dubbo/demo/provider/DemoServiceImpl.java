@@ -25,6 +25,11 @@ import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.CompletableFuture;
 
+/**
+ * 这里的 DemoServiceImpl 类会被封装成为一个 AbstractProxyInvoker 实例，
+ * 并新生成对应的 Exporter 实例。当 Dubbo Protocol 层收到一个请求之后，会找到这个 Exporter 实例，
+ * 并调用其对应的 AbstractProxyInvoker 实例，从而完成 Provider 逻辑的调用。
+ */
 @DubboService
 public class DemoServiceImpl implements DemoService {
     private static final Logger logger = LoggerFactory.getLogger(DemoServiceImpl.class);

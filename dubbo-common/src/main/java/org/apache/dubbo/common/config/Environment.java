@@ -33,16 +33,35 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
+/**
+ * 在 Environment 中维护了多个 Configuration 对象
+ */
 public class Environment extends LifecycleAdapter implements FrameworkExt {
     private static final Logger logger = LoggerFactory.getLogger(Environment.class);
     public static final String NAME = "environment";
 
+    /**
+     * 全部 OrderedPropertiesProvider 实现提供的配置以及环境变量或是 -D 参数中指定配置文件的相关配置信息。
+     */
     private final PropertiesConfiguration propertiesConfiguration;
+    /**
+     * -D 参数配置直接添加的配置信息。
+     */
     private final SystemConfiguration systemConfiguration;
+    /**
+     * 环境变量中直接添加的配置信息。
+     */
     private final EnvironmentConfiguration environmentConfiguration;
+    /**
+     * 使用 Spring 框架且将 include-spring-env 配置为 true 时，会自动从 Spring Environment 中读取配置。
+     * 默认依次读取 key 为 dubbo.properties 和 application.dubbo.properties 到这里两个 InmemoryConfiguration 对象中。
+     */
     private final InmemoryConfiguration externalConfiguration;
     private final InmemoryConfiguration appExternalConfiguration;
 
+    /**
+     * 用于组合上述各个配置来源。
+     */
     private CompositeConfiguration globalConfiguration;
     private CompositeConfiguration dynamicGlobalConfiguration;
 
@@ -50,8 +69,14 @@ public class Environment extends LifecycleAdapter implements FrameworkExt {
     private Map<String, String> externalConfigurationMap = new HashMap<>();
     private Map<String, String> appExternalConfigurationMap = new HashMap<>();
 
+    /**
+     * 用于标识配置中心的配置是否为最高优先级。
+     */
     private boolean configCenterFirst = true;
 
+    /**
+     * 用于组合当前全部的配置中心对应的 DynamicConfiguration。
+     */
     private DynamicConfiguration dynamicConfiguration;
 
     public Environment() {
@@ -62,8 +87,14 @@ public class Environment extends LifecycleAdapter implements FrameworkExt {
         this.appExternalConfiguration = new InmemoryConfiguration();
     }
 
+    /**
+     * 在 initialize() 方法中会将从 Spring Environment 中读取到的配置填充到
+     * externalConfiguration 以及 appExternalConfiguration 中。
+     * @throws IllegalStateException
+     */
     @Override
     public void initialize() throws IllegalStateException {
+        // 读取对应配置，填充上述Configuration对象
         ConfigManager configManager = ApplicationModel.getConfigManager();
         Optional<Collection<ConfigCenterConfig>> defaultConfigs = configManager.getDefaultConfigCenter();
         defaultConfigs.ifPresent(configs -> {
@@ -113,14 +144,18 @@ public class Environment extends LifecycleAdapter implements FrameworkExt {
      * <p>
      * At present, there are many configuration sources, including AbstractConfig (API, XML, annotation), - D, config center, etc.
      * This method helps us to filter out the most priority values from various configuration sources.
-     *
+     * 关注一下 Environment.getPrefixedConfiguration() 方法，
+     * 该方法会将 Environment 中已有的 Configuration 对象以及当前的 ConfigCenterConfig 按照顺序合并，
+     * 得到一个 CompositeConfiguration 对象，用于确定配置中心的最终配置信息。
      * @param config
      * @return
      */
     public synchronized CompositeConfiguration getPrefixedConfiguration(AbstractConfig config) {
+        // 创建CompositeConfiguration对象，这里的prefix和id是根据ConfigCenterConfig确定的
         CompositeConfiguration prefixedConfiguration = new CompositeConfiguration(config.getPrefix(), config.getId());
+        // 将ConfigCenterConfig封装成ConfigConfigurationAdapter
         Configuration configuration = new ConfigConfigurationAdapter(config);
-        if (this.isConfigCenterFirst()) {
+        if (this.isConfigCenterFirst()) {// 根据配置确定ConfigCenterConfig配置的位置
             // The sequence would be: SystemConfiguration -> AppExternalConfiguration -> ExternalConfiguration -> AbstractConfig -> PropertiesConfiguration
             // Config center has the highest priority
             prefixedConfiguration.addConfiguration(systemConfiguration);
@@ -132,6 +167,7 @@ public class Environment extends LifecycleAdapter implements FrameworkExt {
         } else {
             // The sequence would be: SystemConfiguration -> AbstractConfig -> AppExternalConfiguration -> ExternalConfiguration -> PropertiesConfiguration
             // Config center has the highest priority
+            // 配置优先级如下：SystemConfiguration -> AbstractConfig -> AppExternalConfiguration -> ExternalConfiguration -> PropertiesConfiguration
             prefixedConfiguration.addConfiguration(systemConfiguration);
             prefixedConfiguration.addConfiguration(environmentConfiguration);
             prefixedConfiguration.addConfiguration(configuration);

@@ -27,6 +27,9 @@ import static org.apache.dubbo.common.extension.ExtensionLoader.getExtensionLoad
 
 /**
  * The exporter of {@link MetadataService}
+ * 这个接口负责将 MetadataService 接口作为一个 Dubbo 服务发布出去。
+ *
+ * MetadataServiceExporter 只有 ConfigurableMetadataServiceExporter 这一个实现
  *
  * @see MetadataService
  * @see #export()
@@ -38,6 +41,7 @@ public interface MetadataServiceExporter extends Prioritized {
 
     /**
      * Exports the {@link MetadataService} as a Dubbo service
+     * // 将MetadataService作为一个Dubbo服务发布出去
      *
      * @return {@link MetadataServiceExporter itself}
      */
@@ -45,6 +49,7 @@ public interface MetadataServiceExporter extends Prioritized {
 
     /**
      * Unexports the {@link MetadataService}
+     * // 注销掉MetadataService服务
      *
      * @return {@link MetadataServiceExporter itself}
      */
@@ -52,6 +57,7 @@ public interface MetadataServiceExporter extends Prioritized {
 
     /**
      * Get the {@link URL URLs} that were exported
+     * // MetadataService可能以多种协议发布，这里返回发布MetadataService服务的所有URL
      *
      * @return non-null
      */
@@ -59,6 +65,7 @@ public interface MetadataServiceExporter extends Prioritized {
 
     /**
      * {@link MetadataService} is export or not
+     * // 检测MetadataService服务是否已经发布
      *
      * @return if {@link #export()} was executed, return <code>true</code>, or <code>false</code>
      */

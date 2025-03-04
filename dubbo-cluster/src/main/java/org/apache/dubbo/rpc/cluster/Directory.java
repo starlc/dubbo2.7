@@ -30,11 +30,14 @@ import java.util.List;
  * <a href="http://en.wikipedia.org/wiki/Directory_service">Directory Service</a>
  *
  * @see org.apache.dubbo.rpc.cluster.Cluster#join(Directory)
+ * Directory 接口表示的是一个集合，该集合由多个 Invoker 构成，
+ * 后续的路由处理、负载均衡、集群容错等一系列操作都是在 Directory 基础上实现的。
  */
 public interface Directory<T> extends Node {
 
     /**
      * get service type.
+     * // 服务接口类型
      *
      * @return service type.
      */
@@ -42,13 +45,23 @@ public interface Directory<T> extends Node {
 
     /**
      * list invokers.
+     * list()方法会根据传入的Invocation请求，过滤自身维护的Invoker集合，返回符合条件的Invoker集合
      *
      * @return invokers
      */
     List<Invoker<T>> list(Invocation invocation) throws RpcException;
 
+
+    /**
+     *  getAllInvokers()方法返回当前Directory对象维护的全部Invoker对象
+     * @return
+     */
     List<Invoker<T>> getAllInvokers();
 
+    /**
+     * Consumer端的URL
+     * @return
+     */
     URL getConsumerUrl();
 
     boolean isDestroyed();

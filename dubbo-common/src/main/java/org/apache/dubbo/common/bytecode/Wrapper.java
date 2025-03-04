@@ -37,7 +37,13 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Matcher;
 
 /**
+ * Provider 端的 Wrapper 是将个性化的业务接口实现，统一转换成 Dubbo 内部的 Invoker 接口实现。
  * Wrapper.
+ * Wrapper 类本身是抽象类，是对 Java 类的一种包装。Wrapper 会从 Java
+ * 类中的字段和方法抽象出相应 propertyName 和 methodName，在需要调用一个字段或方法的时候，
+ * 会根据传入的方法名和参数进行匹配，找到对应的字段和方法进行调用。
+ *
+ * Wrapper.getWrapper() 方法会根据不同的 Java 对象，使用 Javassist 生成一个相应的 Wrapper 实现对象。
  */
 public abstract class Wrapper {
     private static final Map<Class<?>, Wrapper> WRAPPER_MAP = new ConcurrentHashMap<Class<?>, Wrapper>(); //class wrapper map
@@ -103,7 +109,10 @@ public abstract class Wrapper {
 
     /**
      * get wrapper.
+     * 首先检测该 Java 类是否实现了 DC 这个标识接口，在前面介绍 Proxy 抽象类的时候，我们提到过这个接口
      *
+     * 检测 WRAPPER_MAP 集合（Map<Class<?>, Wrapper> 类型）中是否缓存了对应的 Wrapper 对象，如果已缓存则直接返回，
+     * 如果未缓存则调用 makeWrapper() 方法动态生成 Wrapper 实现类，以及相应的实例对象，并写入缓存中。
      * @param c Class instance.
      * @return Wrapper instance(not null).
      */
@@ -120,6 +129,65 @@ public abstract class Wrapper {
         return WRAPPER_MAP.computeIfAbsent(c, Wrapper::makeWrapper);
     }
 
+    /**
+     * makeWrapper() 方法的实现非常长，但是逻辑并不复杂，该方法会遍历传入的 Class 对象的所有 public 字段和 public 方法，
+     * 构建组装 Wrapper 实现类需要的 Java 代码。具体实现有如下三个步骤。
+     *
+     * 第一步，public 字段会构造相应的 getPropertyValue() 方法和 setPropertyValue() 方法。
+     * 例如，有一个名为“name”的 public 字段，则会生成如下的代码：
+     * // 生成的getPropertyValue()方法
+     * public Object getPropertyValue(Object o, String n){
+     *     DemoServiceImpl w;
+     *     try{
+     *         w = ((DemoServiceImpl)$1);
+     *     }catch(Throwable e){
+     *         throw new IllegalArgumentException(e);
+     *     }
+     *     if( $2.equals(" if( $2.equals("name") ){
+     *         return ($w)w.name;
+     *     }
+     * }
+     * // 生成的setPropertyValue()方法
+     * public void setPropertyValue(Object o, String n, Object v){
+     *     DemoServiceImpl w;
+     *     try{
+     *          w = ((DemoServiceImpl)$1);
+     *     }catch(Throwable e){
+     *         throw new IllegalArgumentException(e);
+     *     }
+     *     if( $2.equals("name") ){
+     *         w.name=(java.lang.String)$3; return;
+     *     }
+     * }
+     *
+     * 第二步，处理 public 方法，这些 public 方法会添加到 invokeMethod 方法中。
+     * 以 Demo 示例（即 dubbo-demo 模块中的 demo ）中的 DemoServiceImpl 为例，生成的 invokeMethod() 方法实现如下：
+     *
+     * public Object invokeMethod(Object o, String n, Class[] p, Object[] v) throws java.lang.reflect.InvocationTargetException {
+     *     org.apache.dubbo.demo.provider.DemoServiceImpl w;
+     *     try {
+     *         w = ((org.apache.dubbo.demo.provider.DemoServiceImpl) $1);
+     *     } catch (Throwable e) {
+     *         throw new IllegalArgumentException(e);
+     *     }
+     *     try {
+     *         // 省略getter/setter方法
+     *         if ("sayHello".equals($<span class="hljs-number">2</span>) &amp;&amp; $3.length == 1) {
+     *             return ($w) w.sayHello((java.lang.String) $4[0]);
+     *         }
+     *         if ("sayHelloAsync".equals($<span class="hljs-number">2</span>) &amp;&amp; $3.length == 1) {
+     *             return ($w) w.sayHelloAsync((java.lang.String) $4[0]);
+     *         }
+     *     } catch (Throwable e) {
+     *         throw new java.lang.reflect.InvocationTargetException(e);
+     *     }
+     *     throw new NoSuchMethodException("Not found method");
+     * }
+     * 第三步，完成了上述 Wrapper 实现类相关信息的填充之后，makeWrapper() 方法会通过 ClassGenerator 创建 Wrapper 实现类，
+     * 具体原理与前面 Proxy 创建代理类的流程类似
+     * @param c
+     * @return
+     */
     private static Wrapper makeWrapper(Class<?> c) {
         if (c.isPrimitive()) {
             throw new IllegalArgumentException("Can not create wrapper for primitive type: " + c);

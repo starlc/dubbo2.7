@@ -22,7 +22,8 @@ import org.apache.dubbo.rpc.cluster.support.wrapper.AbstractCluster;
 
 /**
  * BroadcastCluster
- *
+ * BroadcastCluster 这个 Cluster 实现类的扩展名为 broadcast，
+ * 在其 doJoin() 方法中创建的是 BroadcastClusterInvoker 类型的 Invoker 对象
  */
 public class BroadcastCluster extends AbstractCluster {
 

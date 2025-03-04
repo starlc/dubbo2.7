@@ -27,7 +27,9 @@ import java.util.List;
 
 /**
  * AvailableCluster
- *
+ * 在 AvailableClusterInvoker 的 doInvoke() 方法中，会遍历整个 Invoker 集合，
+ * 逐个调用对应的 Provider 节点，当遇到第一个可用的 Provider 节点时，
+ * 就尝试访问该 Provider 节点，成功则返回结果；如果访问失败，则抛出异常终止遍历。
  */
 public class AvailableClusterInvoker<T> extends AbstractClusterInvoker<T> {
 
@@ -37,11 +39,12 @@ public class AvailableClusterInvoker<T> extends AbstractClusterInvoker<T> {
 
     @Override
     public Result doInvoke(Invocation invocation, List<Invoker<T>> invokers, LoadBalance loadbalance) throws RpcException {
-        for (Invoker<T> invoker : invokers) {
-            if (invoker.isAvailable()) {
-                return invoker.invoke(invocation);
+        for (Invoker<T> invoker : invokers) {// 遍历整个Invoker集合
+            if (invoker.isAvailable()) {// 检测该Invoker是否可用
+                return invoker.invoke(invocation);// 发起请求，调用失败时的异常会直接抛出
             }
         }
+        // 没有找到可用的Invoker，也会抛出异常
         throw new RpcException("No provider available in " + invokers);
     }
 

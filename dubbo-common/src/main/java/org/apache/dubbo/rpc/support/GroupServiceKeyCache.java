@@ -21,6 +21,9 @@ import org.apache.dubbo.common.utils.StringUtils;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
+/**
+ * 依次按照 serviceName、serviceVersion、port 进行分类，最终缓存的 serviceKey 是前面三者拼接而成的
+ */
 public class GroupServiceKeyCache {
 
     private final String serviceGroup;

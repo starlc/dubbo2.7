@@ -23,6 +23,9 @@ import com.alibaba.nacos.api.exception.NacosException;
 import static org.apache.dubbo.common.utils.StringUtils.HYPHEN_CHAR;
 import static org.apache.dubbo.common.utils.StringUtils.SLASH_CHAR;
 
+/**
+ * NacosConfigService包装类，主要是 将内部$ 符号替换___
+ */
 public class NacosConfigServiceWrapper {
 
     private static final String INNERCLASS_SYMBOL = "$";

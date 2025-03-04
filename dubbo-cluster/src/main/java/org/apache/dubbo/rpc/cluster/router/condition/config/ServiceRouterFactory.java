@@ -23,6 +23,11 @@ import org.apache.dubbo.rpc.cluster.Router;
 
 /**
  * Service level router factory
+ * 具有了缓存的能力
+ *
+ * ServiceRouterFactory 创建的 Router 实现是 ServiceRouter，
+ * 与 ServiceRouter 类似的是 AppRouter，两者都继承了 ListenableRouter 抽象类（虽然 ListenableRouter 是个抽象类，
+ * 但是没有抽象方法留给子类实现）
  */
 @Activate(order = 300)
 public class ServiceRouterFactory extends CacheableRouterFactory {

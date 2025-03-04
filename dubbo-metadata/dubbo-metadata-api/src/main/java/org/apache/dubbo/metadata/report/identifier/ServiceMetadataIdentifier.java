@@ -28,6 +28,7 @@ import static org.apache.dubbo.metadata.MetadataConstants.KEY_REVISION_PREFIX;
  * that are from provider and consumer
  * <p>
  * 2019-08-09
+ * ServiceMetadataIdentifier 中包含了服务接口、version、group、side、revision 和 protocol 六个核心字段。
  */
 public class ServiceMetadataIdentifier extends BaseServiceMetadataIdentifier implements BaseMetadataIdentifier {
 

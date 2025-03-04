@@ -29,6 +29,7 @@ import static org.apache.dubbo.common.constants.CommonConstants.VERSION_KEY;
  * The name of class is reserved because of it has been used in the previous version.
  * <p>
  * 2018/10/25
+ * MetadataIdentifier 中包含了服务接口、version、group、side 和 application 五个核心字段。
  */
 public class MetadataIdentifier extends BaseServiceMetadataIdentifier implements BaseMetadataIdentifier {
 

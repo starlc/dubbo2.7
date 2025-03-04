@@ -27,13 +27,23 @@ import static org.apache.dubbo.common.extension.ExtensionLoader.getExtensionLoad
  * Local {@link MetadataService} that extends {@link MetadataService} and provides the modification, which is used for
  * Dubbo's consumers and providers.
  *
+ * 在 MetadataService 接口中定义的都是查询元数据的方法，在其子接口 WritableMetadataService 中添加了一些发布元数据的写方法
+ *
+ * WritableMetadataService 接口被 @SPI 注解修饰，是一个扩展接口，
+ * 在前面的继承关系图中也可以看出，它有两个比较基础的扩展实现，
+ * 分别是 InMemoryWritableMetadataService（默认扩展实现）
+ * 和 RemoteWritableMetadataServiceDelegate，对应扩展名分别是 local 和 remote
  * @since 2.7.5
  */
 @SPI("default")
 public interface WritableMetadataService extends MetadataService {
     /**
      * Gets the current Dubbo Service name
-     *
+     * // ServiceName默认是从ApplicationModel中获取
+     * // ExtensionLoader、DubboBootstrap以及ApplicationModel是单个Dubbo进程范围内的单例对象，
+     * // ExtensionLoader用于Dubbo SPI机制加载扩展实现，DubboBootstrap用于启动Dubbo进程，
+     * // ApplicationModel用于表示一个Dubbo实例，其中维护了多个ProviderModel对象表示当前Dubbo实例发布的服务，
+     * // 维护了多个ConsumerModel对象表示当前Dubbo实例引用的服务。
      * @return non-null
      */
     @Override
@@ -43,6 +53,7 @@ public interface WritableMetadataService extends MetadataService {
 
     /**
      * Exports a {@link URL}
+     * // 发布该URL所代表的服务
      *
      * @param url a {@link URL}
      * @return If success , return <code>true</code>
@@ -51,7 +62,7 @@ public interface WritableMetadataService extends MetadataService {
 
     /**
      * Unexports a {@link URL}
-     *
+     * // 注销该URL所代表的服务
      * @param url a {@link URL}
      * @return If success , return <code>true</code>
      */
@@ -59,7 +70,7 @@ public interface WritableMetadataService extends MetadataService {
 
     /**
      * Subscribes a {@link URL}
-     *
+     * // 订阅该URL所代表的服务
      * @param url a {@link URL}
      * @return If success , return <code>true</code>
      */
@@ -67,18 +78,20 @@ public interface WritableMetadataService extends MetadataService {
 
     /**
      * Unsubscribes a {@link URL}
-     *
+     * // 取消订阅该URL所代表的服务
      * @param url a {@link URL}
      * @return If success , return <code>true</code>
      */
     boolean unsubscribeURL(URL url);
 
+
+    // 发布Provider端的ServiceDefinition
     void publishServiceDefinition(URL providerUrl);
 
 
     /**
      * Get {@link ExtensionLoader#getDefaultExtension() the defautl extension} of {@link WritableMetadataService}
-     *
+     * // 获取WritableMetadataService的默认扩展实现
      * @return non-null
      */
     static WritableMetadataService getDefaultExtension() {

@@ -31,6 +31,9 @@ import java.util.List;
 
 /**
  * BroadcastClusterInvoker
+ * 在 BroadcastClusterInvoker 中，会逐个调用每个 Provider 节点，
+ * 其中任意一个 Provider 节点报错，都会在全部调用结束之后抛出异常。
+ * BroadcastClusterInvoker通常用于通知类的操作，例如通知所有 Provider 节点更新本地缓存。
  */
 public class BroadcastClusterInvoker<T> extends AbstractClusterInvoker<T> {
 
@@ -46,9 +49,10 @@ public class BroadcastClusterInvoker<T> extends AbstractClusterInvoker<T> {
     @Override
     @SuppressWarnings({"unchecked", "rawtypes"})
     public Result doInvoke(final Invocation invocation, List<Invoker<T>> invokers, LoadBalance loadbalance) throws RpcException {
+        // 检测Invoker集合是否为空
         checkInvokers(invokers, invocation);
         RpcContext.getContext().setInvokers((List) invokers);
-        RpcException exception = null;
+        RpcException exception = null;// 用于记录失败请求的相关异常信息
         Result result = null;
         URL url = getUrl();
         // The value range of broadcast.fail.threshold must be 0～100.
@@ -64,6 +68,7 @@ public class BroadcastClusterInvoker<T> extends AbstractClusterInvoker<T> {
 
         int failThresholdIndex = invokers.size() * broadcastFailPercent / MAX_BROADCAST_FAIL_PERCENT;
         int failIndex = 0;
+        // 遍历所有Invoker对象
         for (Invoker<T> invoker : invokers) {
             try {
                 result = invoker.invoke(invocation);
@@ -90,7 +95,7 @@ public class BroadcastClusterInvoker<T> extends AbstractClusterInvoker<T> {
             }
         }
 
-        if (exception != null) {
+        if (exception != null) {// 出现任何异常，都会在这里抛出
             if (failIndex == failThresholdIndex) {
                 logger.debug(
                         String.format("The number of BroadcastCluster call failures has reached the threshold %s", failThresholdIndex));

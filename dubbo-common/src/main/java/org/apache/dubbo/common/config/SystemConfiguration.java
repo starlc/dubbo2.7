@@ -22,6 +22,8 @@ package org.apache.dubbo.common.config;
  *
  * @See ConfigUtils#getProperty(String)
  * @see PropertiesConfiguration
+ *
+ * SystemConfiguration 是从 Java Properties 配置（也就是 -D 配置参数）中获取相应的配置项
  */
 public class SystemConfiguration implements Configuration {
 

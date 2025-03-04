@@ -40,6 +40,7 @@ import static org.apache.dubbo.common.constants.CommonConstants.THREAD_NAME_KEY;
 /**
  * This thread pool is self-tuned. Thread will be recycled after idle for one minute, and new thread will be created for
  * the upcoming request.
+ * 核心线程数为0 最大线程数为Integer.MAX_VALUE 队列数量默认为0 默认释放时间为60s
  *
  * @see java.util.concurrent.Executors#newCachedThreadPool()
  */

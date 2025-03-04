@@ -31,7 +31,7 @@ import org.apache.dubbo.rpc.cluster.RouterFactory;
  * <li> script://C:/path/to/routerfile.js?type=js&rule=xxxx
  * </ol>
  * The host value in URL points out the address of the source content of the Script Router，Registry、File etc
- *
+ * ScriptRouterFactory 的扩展名为 script，其 getRouter() 方法中会创建一个 ScriptRouter 对象并返回
  */
 public class ScriptRouterFactory implements RouterFactory {
 

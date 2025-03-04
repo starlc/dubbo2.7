@@ -32,7 +32,7 @@ import java.util.List;
  * Usually used for non-idempotent write operations
  *
  * <a href="http://en.wikipedia.org/wiki/Fail-fast">Fail-fast</a>
- *
+ * FailfastCluster 的扩展名是 failfast，在其 doJoin() 方法中会创建 FailfastClusterInvoker 对象
  */
 public class FailfastClusterInvoker<T> extends AbstractClusterInvoker<T> {
 
@@ -43,10 +43,12 @@ public class FailfastClusterInvoker<T> extends AbstractClusterInvoker<T> {
     @Override
     public Result doInvoke(Invocation invocation, List<Invoker<T>> invokers, LoadBalance loadbalance) throws RpcException {
         checkInvokers(invokers, invocation);
+        // 调用select()得到此次要调用的Invoker对象
         Invoker<T> invoker = select(loadbalance, invocation, invokers, null);
         try {
-            return invoker.invoke(invocation);
+            return invoker.invoke(invocation);// 发起请求
         } catch (Throwable e) {
+            // 请求失败，直接抛出异常
             if (e instanceof RpcException && ((RpcException) e).isBiz()) { // biz exception.
                 throw (RpcException) e;
             }

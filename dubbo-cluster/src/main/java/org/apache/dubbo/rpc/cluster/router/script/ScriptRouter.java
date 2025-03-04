@@ -55,6 +55,8 @@ import static org.apache.dubbo.rpc.cluster.Constants.TYPE_KEY;
 
 /**
  * ScriptRouter
+ * ScriptRouter 支持 JDK 脚本引擎的所有脚本，例如，JavaScript、JRuby、Groovy 等，
+ * 通过 type=javascript 参数设置脚本类型，缺省为 javascript。下面我们就定义一个 route() 函数进行 host 过滤：
  */
 public class ScriptRouter extends AbstractRouter {
 
@@ -62,12 +64,25 @@ public class ScriptRouter extends AbstractRouter {
     private static final int SCRIPT_ROUTER_DEFAULT_PRIORITY = 0;
     private static final Logger logger = LoggerFactory.getLogger(ScriptRouter.class);
 
+    /**
+     * 这是一个 static 集合，其中的 Key 是脚本语言的名称，Value 是对应的 ScriptEngine 对象。
+     * 这里会按照脚本语言的类型复用 ScriptEngine 对象。
+     */
     private static final Map<String, ScriptEngine> ENGINES = new ConcurrentHashMap<>();
 
+    /**
+     * 当前 ScriptRouter 使用的 ScriptEngine 对象
+     */
     private final ScriptEngine engine;
 
+    /**
+     * 当前 ScriptRouter 使用的具体脚本内容。
+     */
     private final String rule;
 
+    /**
+     * 根据 rule 这个具体脚本内容编译得到。
+     */
     private CompiledScript function;
 
     private AccessControlContext accessControlContext;
@@ -83,14 +98,22 @@ public class ScriptRouter extends AbstractRouter {
                 new ProtectionDomain[]{domain});
     }
 
+    /**
+     * 在 ScriptRouter 的构造函数中，首先会初始化 url 字段以及 priority 字段（用于排序），
+     * 然后根据 URL 中的 type 参数初始化 engine、rule 和 function 三个核心字段
+     * @param url
+     */
     public ScriptRouter(URL url) {
         this.url = url;
         this.priority = url.getParameter(PRIORITY_KEY, SCRIPT_ROUTER_DEFAULT_PRIORITY);
 
+        // 根据URL中的type参数值，从ENGINES集合中获取对应的ScriptEngine对象
         engine = getEngine(url);
+        // 获取URL中的rule参数值，即为具体的脚本
         rule = getRule(url);
         try {
             Compilable compilable = (Compilable) engine;
+            // 编译rule字段中的脚本，得到function字段
             function = compilable.compile(rule);
         } catch (ScriptException e) {
             logger.error("route error, rule has been ignored. rule: " + rule +
@@ -129,7 +152,9 @@ public class ScriptRouter extends AbstractRouter {
         if (engine == null || function == null) {
             return invokers;
         }
+        // 创建Bindings对象作为function函数的入参
         Bindings bindings = createBindings(invokers, invocation);
+        // 调用function函数，并在getRoutedInvokers()方法中整理得到的Invoker集合
         return getRoutedInvokers(AccessController.doPrivileged(new PrivilegedAction() {
             @Override
             public Object run() {
@@ -161,10 +186,26 @@ public class ScriptRouter extends AbstractRouter {
 
     /**
      * create bindings for script engine
+     *
+     * function route(invokers, invocation, context){
+     *     var result = new java.util.ArrayList(invokers.size());
+     *     var targetHost = new java.util.ArrayList();
+     *     targetHost.add("10.134.108.2");
+     *     for (var i = 0; i < invokers.length; i) {  // 遍历Invoker集合
+     *         // 判断Invoker的host是否符合条件
+     *         if(targetHost.contains(invokers[i].getUrl().getHost())){
+     *             result.add(invokers[i]);
+     *         }
+     *     }
+     *     return result;
+     * }
+     * route(invokers, invocation, context)  // 立即执行route()函数
      */
     private <T> Bindings createBindings(List<Invoker<T>> invokers, Invocation invocation) {
         Bindings bindings = engine.createBindings();
         // create a new List of invokers
+        // 与前面的javascript的示例脚本结合，我们可以看到这里在Bindings中为脚本中
+        // 的route()函数提供了invokers、Invocation、context三个参数
         bindings.put("invokers", new ArrayList<>(invokers));
         bindings.put("invocation", invocation);
         bindings.put("context", RpcContext.getContext());

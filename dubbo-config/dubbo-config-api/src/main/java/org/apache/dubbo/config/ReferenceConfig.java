@@ -199,11 +199,11 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
     }
 
     public synchronized T get() {
-        if (destroyed) {
+        if (destroyed) {// 检测当前ReferenceConfig状态
             throw new IllegalStateException("The invoker of ReferenceConfig(" + url + ") has already destroyed!");
         }
-        if (ref == null) {
-            init();
+        if (ref == null) {// ref指向了服务的代理对象
+            init();// 初始化ref字段
         }
         return ref;
     }
@@ -229,13 +229,16 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
         dispatch(new ReferenceConfigDestroyedEvent(this));
     }
 
+    /**
+     * 在 ReferenceConfig.init() 方法中，首先会对服务引用的配置进行处理，以保证配置的正确性。
+     */
     public synchronized void init() {
-        if (initialized) {
+        if (initialized) {// 检测ReferenceConfig的初始化状态
             return;
         }
 
 
-        if (bootstrap == null) {
+        if (bootstrap == null) {// 检测DubboBootstrap的初始化状态
             bootstrap = DubboBootstrap.getInstance();
             // compatible with api call.
             if (null != this.getRegistries()) {
@@ -250,8 +253,9 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
         ConfigValidationUtils.checkMock(interfaceClass, this);
 
         Map<String, String> map = new HashMap<String, String>();
-        map.put(SIDE_KEY, CONSUMER_SIDE);
+        map.put(SIDE_KEY, CONSUMER_SIDE);// 添加side参数
 
+        // 添加Dubbo版本、release参数、timestamp参数、pid参数
         ReferenceConfigBase.appendRuntimeParameters(map);
         if (!ProtocolUtils.isGeneric(generic)) {
             String revision = Version.getVersion(interfaceClass, version);
@@ -267,6 +271,7 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
                 map.put(METHODS_KEY, StringUtils.join(new HashSet<String>(Arrays.asList(methods)), COMMA_SEPARATOR));
             }
         }
+        // 添加interface参数
         map.put(INTERFACE_KEY, interfaceName);
         AbstractConfig.appendParameters(map, getMetrics());
         AbstractConfig.appendParameters(map, getApplication());
@@ -306,10 +311,12 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
             throw new IllegalArgumentException(
                     "Specified invalid registry ip from property:" + DUBBO_IP_TO_REGISTRY + ", value:" + hostToRegistry);
         }
+        // 添加ip参数
         map.put(REGISTER_IP_KEY, hostToRegistry);
 
         serviceMetadata.getAttachments().putAll(map);
 
+        // 调用createProxy()方法 核心逻辑
         ref = createProxy(map);
 
         serviceMetadata.setTarget(ref);
@@ -323,13 +330,41 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
         checkInvokerAvailable();
 
         // dispatch a ReferenceConfigInitializedEvent since 2.7.4
+        // 触发ReferenceConfigInitializedEvent事件
         dispatch(new ReferenceConfigInitializedEvent(this, invoker));
     }
 
+    /**
+     * ReferenceConfig.createProxy() 方法中处理了多种服务引用的场景，例如，直连单个/多个Provider、单个/多个注册中心。
+     *
+     * 1.根据传入的参数集合判断协议是否为 injvm 协议，如果是，直接通过 InjvmProtocol 引用服务。
+     *
+     * 2.构造 urls 集合。Dubbo 支持直连 Provider和依赖注册中心两种服务引用方式。
+     * 如果是直连服务的模式，我们可以通过 url 参数指定一个或者多个 Provider 地址，会被解析并填充到 urls 集合；
+     * 如果通过注册中心的方式进行服务引用，则会调用 AbstractInterfaceConfig.loadRegistries() 方法加载所有注册中心。
+     *
+     * 3.如果 urls 集合中只记录了一个 URL，通过 Protocol 适配器选择合适的 Protocol 扩展实现创建 Invoker 对象。
+     * 如果是直连 Provider 的场景，则 URL 为 dubbo 协议，这里就会使用 DubboProtocol 这个实现；
+     * 如果依赖注册中心，则使用 RegistryProtocol 这个实现。
+     *
+     * 3.如果 urls 集合中有多个注册中心，则使用 ZoneAwareCluster 作为 Cluster 的默认实现，生成对应的 Invoker 对象；
+     * 如果 urls 集合中记录的是多个直连服务的地址，则使用 Cluster 适配器选择合适的扩展实现生成 Invoker 对象。
+     *
+     * 4.通过 ProxyFactory 适配器选择合适的 ProxyFactory 扩展实现，将 Invoker 包装成服务接口的代理对象。
+     *
+     * 5.通过上面的流程我们可以看出createProxy() 方法中有两个核心：
+     * 一是通过 Protocol 适配器选择合适的 Protocol 扩展实现创建 Invoker 对象；
+     * 二是通过 ProxyFactory 适配器选择合适的 ProxyFactory 创建代理对象。
+     * @param map
+     * @return
+     */
     @SuppressWarnings({"unchecked", "rawtypes", "deprecation"})
     private T createProxy(Map<String, String> map) {
+        // 根据url的协议、scope以及injvm等参数检测是否需要本地引用
         if (shouldJvmRefer(map)) {
+            // 创建injvm协议的URL
             URL url = new URL(LOCAL_PROTOCOL, LOCALHOST_VALUE, 0, interfaceClass.getName()).addParameters(map);
+            // 通过Protocol的适配器选择对应的Protocol实现创建Invoker对象
             invoker = REF_PROTOCOL.refer(interfaceClass, url);
             if (logger.isInfoEnabled()) {
                 logger.info("Using injvm service " + interfaceClass.getName());
@@ -337,16 +372,18 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
         } else {
             urls.clear();
             if (url != null && url.length() > 0) { // user specified URL, could be peer-to-peer address, or register center's address.
-                String[] us = SEMICOLON_SPLIT_PATTERN.split(url);
-                if (us != null && us.length > 0) {
+                String[] us = SEMICOLON_SPLIT_PATTERN.split(url);// 配置多个URL的时候，会用分号进行切分
+                if (us != null && us.length > 0) { // url不为空，表明用户可能想进行点对点调用
                     for (String u : us) {
                         URL url = URL.valueOf(u);
                         if (StringUtils.isEmpty(url.getPath())) {
-                            url = url.setPath(interfaceName);
+                            url = url.setPath(interfaceName);// 设置接口完全限定名为URL Path
                         }
-                        if (UrlUtils.isRegistry(url)) {
+                        if (UrlUtils.isRegistry(url)) {// 检测URL协议是否为registry，若是，说明用户想使用指定的注册中心
+                            // 这里会将map中的参数整理成一个参数添加到refer参数中
                             urls.add(url.addParameterAndEncoded(REFER_KEY, StringUtils.toQueryString(map)));
                         } else {
+                            // 将map中的参数添加到url中
                             urls.add(ClusterUtils.mergeUrl(url, map));
                         }
                     }
@@ -355,6 +392,7 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
                 // if protocols not injvm checkRegistry
                 if (!LOCAL_PROTOCOL.equalsIgnoreCase(getProtocol())) {
                     checkRegistry();
+                    // 加载注册中心的地址RegistryURL
                     List<URL> us = ConfigValidationUtils.loadRegistries(this, false);
                     if (CollectionUtils.isNotEmpty(us)) {
                         for (URL u : us) {
@@ -362,10 +400,11 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
                             if (monitorUrl != null) {
                                 map.put(MONITOR_KEY, URL.encode(monitorUrl.toFullString()));
                             }
+                            // 将map中的参数整理成refer参数，添加到RegistryURL中
                             urls.add(u.addParameterAndEncoded(REFER_KEY, StringUtils.toQueryString(map)));
                         }
                     }
-                    if (urls.isEmpty()) {
+                    if (urls.isEmpty()) {// 既不是服务直连，也没有配置注册中心，抛出异常
                         throw new IllegalStateException(
                                 "No such any registry to reference " + interfaceName + " on the consumer " + NetUtils.getLocalHost() +
                                         " use dubbo version " + Version.getVersion() +
@@ -375,8 +414,11 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
             }
 
             if (urls.size() == 1) {
+                // !! 在单注册中心或是直连单个服务提供方的时候，通过Protocol的适配器选择对应的Protocol实现创建Invoker对象
+                // 此时因为是register:// 所以实例对象是 InterfaceCompatibleRegistryProtocol
                 invoker = REF_PROTOCOL.refer(interfaceClass, urls.get(0));
             } else {
+                // 多注册中心或是直连多个服务提供方的时候，会根据每个URL创建Invoker对象
                 List<Invoker<?>> invokers = new ArrayList<Invoker<?>>();
                 URL registryURL = null;
                 for (URL url : urls) {
@@ -384,13 +426,14 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
                     // Because this invoker may become available later.
                     invokers.add(REF_PROTOCOL.refer(interfaceClass, url));
 
-                    if (UrlUtils.isRegistry(url)) {
+                    if (UrlUtils.isRegistry(url)) {// 确定是多注册中心，还是直连多个Provider
                         registryURL = url; // use last registry url
                     }
                 }
 
                 if (registryURL != null) { // registry url is available
                     // for multi-subscription scenario, use 'zone-aware' policy by default
+                    // 多注册中心的场景中，会使用ZoneAwareCluster作为Cluster默认实现，多注册中心之间的选择
                     String cluster = registryURL.getParameter(CLUSTER_KEY, ZoneAwareCluster.NAME);
                     // The invoker wrap sequence would be: ZoneAwareClusterInvoker(StaticDirectory) -> FailoverClusterInvoker(RegistryDirectory, routing happens here) -> Invoker
                     invoker = Cluster.getCluster(cluster, false).join(new StaticDirectory(registryURL, invokers));
@@ -400,6 +443,7 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
                             (invokers.get(0).getUrl() != null ? invokers.get(0).getUrl().getParameter(CLUSTER_KEY, ZoneAwareCluster.NAME) :
                                     Cluster.DEFAULT)
                             : Cluster.DEFAULT;
+                    // 多个Provider直连的场景中，使用Cluster适配器选择合适的扩展实现
                     invoker = Cluster.getCluster(cluster).join(new StaticDirectory(invokers));
                 }
             }
@@ -409,10 +453,12 @@ public class ReferenceConfig<T> extends ReferenceConfigBase<T> {
             logger.info("Refer dubbo service " + interfaceClass.getName() + " from url " + invoker.getUrl());
         }
 
+        // 元数据处理相关的逻辑
         URL consumerURL = new URL(CONSUMER_PROTOCOL, map.remove(REGISTER_IP_KEY), 0, map.get(INTERFACE_KEY), map);
         MetadataUtils.publishServiceDefinition(consumerURL);
 
-        // create service proxy
+        // create service proxy 消费端创建代理对象
+        // 通过ProxyFactory适配器选择合适的ProxyFactory扩展实现，创建代理对象
         return (T) PROXY_FACTORY.getProxy(invoker, ProtocolUtils.isGeneric(generic));
     }
 

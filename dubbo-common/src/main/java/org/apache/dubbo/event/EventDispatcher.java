@@ -34,12 +34,23 @@ public interface EventDispatcher extends Listenable<EventListener<?>> {
 
     /**
      * Direct {@link Executor} uses sequential execution model
+     * // 该线程池用于串行调用被触发的EventListener，也就是direct模式，调用线程是当前线程
+     *
+     * 等价于
+     * Executor DIRECT_EXECUTOR = new Executor() {
+     *     @Override
+     *     public void execute(Runnable command) {
+     *         command.run(); // 直接调用传入的 Runnable 的 run 方法
+     *     }
+     * };
+     *
+     * Executor DIRECT_EXECUTOR = (Runnable command) -> command.run();
      */
     Executor DIRECT_EXECUTOR = Runnable::run;
 
     /**
      * Dispatch a Dubbo event to the registered {@link EventListener Dubbo event listeners}
-     *
+     * // 将被触发的事件分发给相应的EventListener对象
      * @param event a {@link Event Dubbo event}
      */
     void dispatch(Event event);
@@ -50,6 +61,8 @@ public interface EventDispatcher extends Listenable<EventListener<?>> {
      * @return default implementation directly invoke {@link Runnable#run()} method, rather than multiple-threaded
      * {@link Executor}. If the return value is <code>null</code>, the behavior is same as default.
      * @see #DIRECT_EXECUTOR
+     *
+     * 获取direct模式中使用的线程池
      */
     default Executor getExecutor() {
         return DIRECT_EXECUTOR;
@@ -57,7 +70,7 @@ public interface EventDispatcher extends Listenable<EventListener<?>> {
 
     /**
      * The default extension of {@link EventDispatcher} is loaded by {@link ExtensionLoader}
-     *
+     * // 工具方法，用于获取EventDispatcher接口的默认实现
      * @return the default extension of {@link EventDispatcher}
      */
     static EventDispatcher getDefaultExtension() {

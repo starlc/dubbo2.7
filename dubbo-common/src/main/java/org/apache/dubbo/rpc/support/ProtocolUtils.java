@@ -33,6 +33,11 @@ import static org.apache.dubbo.common.constants.CommonConstants.VERSION_KEY;
 
 public class ProtocolUtils {
 
+    /**
+     * 在 ProtocolUtils 中维护了多层的 Map 结构（如下图所示）。
+     * 首先按照 group 分组，在实践中我们可以根据需求设置 group，例如，按照机房、地域等进行 group 划分，做到就近调用；
+     * 在 GroupServiceKeyCache 中，依次按照 serviceName、serviceVersion、port 进行分类，最终缓存的 serviceKey 是前面三者拼接而成的。
+     */
     private static final ConcurrentMap<String, GroupServiceKeyCache> groupServiceKeyCacheMap = new ConcurrentHashMap<>();
 
     private ProtocolUtils() {

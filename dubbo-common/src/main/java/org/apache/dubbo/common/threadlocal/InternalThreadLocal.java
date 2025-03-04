@@ -30,13 +30,25 @@ import java.util.Set;
  * table, and it is useful when accessed frequently.
  * <p></p>
  * This design is learning from {@see io.netty.util.concurrent.FastThreadLocal} which is in Netty.
+ *
+ * Dubbo 的 InternalThreadLocal 与 JDK 提供的 ThreadLocal 功能类似，只是底层实现略有不同，
+ * 其底层的 InternalThreadLocalMap
+ * 采用数组结构存储数据，直接通过 index 获取变量，相较于 Map 方式计算 hash 值的性能更好。
  */
 public class InternalThreadLocal<V> {
 
+    /**
+     * 是调用InternalThreadLocalMap 的 nextVariableIndex 方法得到的一个索引值，
+     * 在 InternalThreadLocalMap 数组的对应位置保存的是 Set<InternalThreadLocal> 类型的集合，
+     * 也就是上面提到的“待删除集合”，即绑定到当前线程所有的 InternalThreadLocal，这样就可以方便管理对象及内存的释放
+     */
     private static final int VARIABLES_TO_REMOVE_INDEX = InternalThreadLocalMap.nextVariableIndex();
 
     private final int index;
 
+    /**
+     * 初始化的时候就生成了当前Local的index值
+     */
     public InternalThreadLocal() {
         index = InternalThreadLocalMap.nextVariableIndex();
     }
@@ -143,10 +155,13 @@ public class InternalThreadLocal<V> {
      */
     public final void set(V value) {
         if (value == null || value == InternalThreadLocalMap.UNSET) {
-            remove();
+            remove();// 如果要存储的值为null或是UNSERT，则直接清除
         } else {
+            // 获取当前线程绑定的InternalThreadLocalMap
             InternalThreadLocalMap threadLocalMap = InternalThreadLocalMap.get();
+            // 将value存储到InternalThreadLocalMap.indexedVariables集合中
             if (threadLocalMap.setIndexedVariable(index, value)) {
+                // 将当前InternalThreadLocal记录到待删除集合中
                 addToVariablesToRemove(threadLocalMap, this);
             }
         }

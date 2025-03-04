@@ -290,6 +290,7 @@ public class ApplicationConfig extends AbstractConfig {
 
     public void setLogger(String logger) {
         this.logger = logger;
+        //设置日志框架
         LoggerFactory.setLoggerAdapter(logger);
     }
 

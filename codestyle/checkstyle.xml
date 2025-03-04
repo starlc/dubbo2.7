@@ -4,7 +4,7 @@
         "http://checkstyle.sourceforge.net/dtds/configuration_1_3.dtd">
 
 <module name="Checker">
-    <property name="charset" value="UTF-8"/>
+    <!-- <property name="charset" value="UTF-8"/>
     <property name="fileExtensions" value="java"/>
 
     <module name="Header">
@@ -34,5 +34,5 @@
         <!--<property name="sortImportsInGroupAlphabetically" value="false"/>-->
         <!--<property name="customImportOrderRules" value="SPECIAL_IMPORTS###THIRD_PARTY_PACKAGE###STANDARD_JAVA_PACKAGE###STATIC"/>-->
         <!--</module>-->
-    </module>
+    </module> -->
 </module>

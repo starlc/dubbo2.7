@@ -49,7 +49,10 @@ import static org.apache.dubbo.common.utils.ReflectUtils.findMethodByMethodSigna
 
 /**
  * Utility methods and public methods for parsing configuration
- *
+ *  AbstractConfig 实现基本都对应一个固定的配置，也定义了配置对应的字段以及 getter/setter() 方法。
+ *  例如，RegistryConfig 这个实现类就对应了注册中心的相关配置，其中包含了 address、protocol、port、timeout
+ *  等一系列与注册中心相关的字段以及对应的 getter/setter() 方法，
+ *  来接收用户通过 XML、Annotation 或是 API 方式传入的注册中心配置。
  * @export
  */
 public abstract class AbstractConfig implements Serializable {
@@ -59,6 +62,7 @@ public abstract class AbstractConfig implements Serializable {
 
     /**
      * The legacy properties container
+     * 遗留属性容器
      */
     private static final Map<String, String> LEGACY_PROPERTIES = new HashMap<String, String>();
 
@@ -467,17 +471,24 @@ public abstract class AbstractConfig implements Serializable {
         this.prefix = prefix;
     }
 
+    /**
+     * 该方法会组合 Environment 对象中全部已初始化的 Configuration，然后遍历 ConfigCenterConfig 中全部字段的 setter 方法，并从 Environment 中获取对应字段的最终值。
+     */
     public void refresh() {
+        // 获取Environment对象
         Environment env = ApplicationModel.getEnvironment();
         try {
+            // 将当前已初始化的所有Configuration合并返回
             CompositeConfiguration compositeConfiguration = env.getPrefixedConfiguration(this);
             // loop methods, get override value and set the new value back to method
             Method[] methods = getClass().getMethods();
             for (Method method : methods) {
-                if (MethodUtils.isSetter(method)) {
+                if (MethodUtils.isSetter(method)) {// 获取ConfigCenterConfig中各个字段的setter方法
                     try {
+                        // 根据配置中心的相关配置以及Environment中的各个Configuration，获取该字段的最终值
                         String value = StringUtils.trim(compositeConfiguration.getString(extractPropertyName(getClass(), method)));
                         // isTypeMatch() is called to avoid duplicate and incorrect update, for example, we have two 'setGeneric' methods in ReferenceConfig.
+                        // 调用setter方法更新ConfigCenterConfig的相应字段
                         if (StringUtils.isNotEmpty(value) && ClassUtils.isTypeMatch(method.getParameterTypes()[0], value)) {
                             method.invoke(this, ClassUtils.convertPrimitive(method.getParameterTypes()[0], value));
                         }
@@ -486,12 +497,15 @@ public abstract class AbstractConfig implements Serializable {
                                 this.getClass().getSimpleName() +
                                 ", please make sure every property has getter/setter method provided.");
                     }
-                } else if (isParametersSetter(method)) {
+                } else if (isParametersSetter(method)) {// 设置parameters字段，与设置其他字段的逻辑基本类似，但是实现有所不同
                     String value = StringUtils.trim(compositeConfiguration.getString(extractPropertyName(getClass(), method)));
                     if (StringUtils.isNotEmpty(value)) {
+                        // 获取当前已有的parameters字段
                         Map<String, String> map = invokeGetParameters(getClass(), this);
                         map = map == null ? new HashMap<>() : map;
+                        // 覆盖parameters集合
                         map.putAll(convert(StringUtils.parseParameters(value), ""));
+                        // 设置parameters字段
                         invokeSetParameters(getClass(), this, map);
                     }
                 }
@@ -583,7 +597,7 @@ public abstract class AbstractConfig implements Serializable {
      * Add {@link AbstractConfig instance} into {@link ConfigManager}
      * <p>
      * Current method will invoked by Spring or Java EE container automatically, or should be triggered manually.
-     *
+     * 初始化任何bean的时候 都会调用此方法，将bean添加到ConfigManager
      * @see ConfigManager#addConfig(AbstractConfig)
      * @since 2.7.5
      */

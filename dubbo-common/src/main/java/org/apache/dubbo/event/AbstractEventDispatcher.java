@@ -43,13 +43,24 @@ import static org.apache.dubbo.event.EventListener.findEventType;
  * @see EventListener
  * @see Event
  * @since 2.7.5
+ * AbstractEventDispatcher 已经实现了 EventDispatcher 分发 Event 事件、
+ * 通知 EventListener 的核心逻辑，然后在 ParallelEventDispatcher
+ * 和 DirectEventDispatcher 确定是并行通知模式还是串行通知模式即可
  */
 public abstract class AbstractEventDispatcher implements EventDispatcher {
 
     private final Object mutex = new Object();
 
+    /**
+     * 用于记录监听各类型事件的 EventListener 集合。在 AbstractEventDispatcher 初始化时，
+     * 会加载全部 EventListener 实现并调用 addEventListener() 方法添加到 listenersCache 集合中。
+     */
     private final ConcurrentMap<Class<? extends Event>, List<EventListener>> listenersCache = new ConcurrentHashMap<>();
 
+    /**
+     * 该线程池在 AbstractEventDispatcher 的构造函数中初始化。在 AbstractEventDispatcher
+     * 收到相应事件时，由该线程池来触发对应的 EventListener 集合。
+     */
     private final Executor executor;
 
     /**
@@ -95,6 +106,12 @@ public abstract class AbstractEventDispatcher implements EventDispatcher {
         return sortedListeners(e -> true);
     }
 
+
+    /**
+     * // 这里的sortedListeners方法会对listenerCache进行过滤和排序
+     * @param predicate
+     * @return
+     */
     protected Stream<EventListener> sortedListeners(Predicate<Map.Entry<Class<? extends Event>, List<EventListener>>> predicate) {
         return listenersCache
                 .entrySet()
@@ -111,9 +128,15 @@ public abstract class AbstractEventDispatcher implements EventDispatcher {
         }
     }
 
+    /**
+     * AbstractEventDispatcher 中另一个要关注的方法是 dispatch() 方法，该方法会从 listenersCache
+     * 集合中过滤出符合条件的 EventListener 对象，并按照串行或是并行模式进行通知
+     * @param event a {@link Event Dubbo event}
+     */
     @Override
     public void dispatch(Event event) {
 
+        // 获取通知EventListener的线程池，默认为串行模式，也就是direct实现
         Executor executor = getExecutor();
 
         // execute in sequential or parallel execution model
@@ -126,7 +149,7 @@ public abstract class AbstractEventDispatcher implements EventDispatcher {
                                 return;
                             }
                         }
-                        // Handle the event
+                        // Handle the event// 通知EventListener
                         listener.onEvent(event);
                     });
         });

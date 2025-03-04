@@ -33,6 +33,9 @@ import java.util.concurrent.ConcurrentMap;
 
 /**
  * Logger factory
+ * 在 LoggerFactory 中维护了一个 LOGGERS 集合（Map<String, FailsafeLogger> 类型），
+ * 其中维护了当前使用的全部 FailsafeLogger 对象；FailsafeLogger 对象中封装了一个 Logger 对象，
+ * 这个 Logger 接口是 Dubbo 自己定义的接口，Dubbo 针对每种第三方框架都提供了一个 Logger 接口的实现
  */
 public class LoggerFactory {
 
@@ -79,6 +82,10 @@ public class LoggerFactory {
     private LoggerFactory() {
     }
 
+    /**
+     * LOGGER_ADAPTER 字段在 LoggerFactory.setLogger() 方法中，通过 SPI 机制初始化
+     * @param loggerAdapter
+     */
     public static void setLoggerAdapter(String loggerAdapter) {
         if (loggerAdapter != null && loggerAdapter.length() > 0) {
             setLoggerAdapter(ExtensionLoader.getExtensionLoader(LoggerAdapter.class).getExtension(loggerAdapter));
@@ -86,8 +93,6 @@ public class LoggerFactory {
     }
 
     /**
-     * Set logger provider
-     *
      * @param loggerAdapter logger provider
      */
     public static void setLoggerAdapter(LoggerAdapter loggerAdapter) {
@@ -103,6 +108,7 @@ public class LoggerFactory {
 
     /**
      * Get logger provider
+     * 在 LoggerFactory.getLogger() 方法中，是通过其中的 LOGGER_ADAPTER 字段（LoggerAdapter 类型） 获取 Logger 实现对象的
      *
      * @param key the returned logger will be named after clazz
      * @return logger

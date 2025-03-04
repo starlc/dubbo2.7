@@ -33,6 +33,9 @@ import static org.apache.dubbo.metadata.report.support.Constants.METADATA_REPORT
 
 /**
  * 2019-08-09
+ * MetadataReportInstance 是一个单例对象，其中会获取 MetadataReportFactory 的适配器，
+ * 并根据 init() 方法传入的 metadataReportURL 选择对应的 MetadataReportFactory
+ * 创建 MetadataReport 实例，这也是当前 Dubbo 进程全局唯一的 MetadataReport 实例。
  */
 public class MetadataReportInstance {
 
@@ -40,6 +43,10 @@ public class MetadataReportInstance {
 
     private static final Map<String, MetadataReport> metadataReports = new HashMap<>();
 
+    /**
+     * 根据 init() 方法传入的 metadataReportURL 选择对应的 MetadataReportFactory 创建 MetadataReport 实例
+     * @param config
+     */
     public static void init(MetadataReportConfig config) {
         if (!init.compareAndSet(false, true)) {
             return;

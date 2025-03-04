@@ -41,6 +41,18 @@ import static org.apache.dubbo.common.extension.ExtensionLoader.getExtensionLoad
  * </ol>
  *
  * @see AbstractDynamicConfiguration
+ *
+ * DynamicConfiguration 是对 Dubbo 中动态配置的抽象，其核心方法有下面三类。
+ *
+ * getProperties()/ getConfig() / getProperty() 方法：从配置中心获取指定的配置，在使用时，可以指定一个超时时间。
+ * addListener()/ removeListener() 方法：添加或删除对指定配置的监听器。
+ * publishConfig() 方法：发布一条配置信息。
+ *
+ * 在上述三类方法中，每个方法都用多个重载，其中，都会包含一个带有 group 参数的重载，
+ * 也就是说配置中心的配置可以按照 group 进行分组。
+ *
+ * 与 Dubbo 中很多接口类似，DynamicConfiguration 接口本身不被 @SPI 注解修饰（即不是一个扩展接口），
+ * 而是在 DynamicConfigurationFactory 上添加了 @SPI 注解，使其成为一个扩展接口。
  */
 public interface DynamicConfiguration extends Configuration, AutoCloseable {
 
@@ -213,7 +225,7 @@ public interface DynamicConfiguration extends Configuration, AutoCloseable {
 
     /**
      * Get the instance of {@link DynamicConfiguration} by the specified connection {@link URL}
-     *
+     * 静态方法，该方法会从传入的配置中心 URL 参数中，解析出协议类型并获取对应的 DynamicConfigurationFactory 实现
      * @param connectionURL
      * @return non-null
      * @since 2.7.5

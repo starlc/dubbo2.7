@@ -21,6 +21,7 @@ import java.util.Objects;
 
 /**
  * An event raised when the config changed, immutable.
+ * 配置变更事件
  *
  * @see ConfigChangeType
  */

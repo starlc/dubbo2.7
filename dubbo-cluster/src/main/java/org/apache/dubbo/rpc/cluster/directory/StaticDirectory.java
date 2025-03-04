@@ -30,6 +30,7 @@ import java.util.List;
 
 /**
  * StaticDirectory
+ * StaticDirectory 实现中维护的 Invoker 集合则是静态的，在 StaticDirectory 对象创建完成之后，不会再发生变化。
  */
 public class StaticDirectory<T> extends AbstractDirectory<T> {
     private static final Logger logger = LoggerFactory.getLogger(StaticDirectory.class);
@@ -48,6 +49,14 @@ public class StaticDirectory<T> extends AbstractDirectory<T> {
         this(url, invokers, null);
     }
 
+    /**
+     * StaticDirectory 这个 Directory 实现比较简单，在构造方法中，
+     * StaticDirectory 会接收一个 Invoker 集合，
+     * 并赋值到自身的 invokers 字段中，作为底层的 Invoker 集合。
+     * @param url
+     * @param invokers
+     * @param routerChain
+     */
     public StaticDirectory(URL url, List<Invoker<T>> invokers, RouterChain<T> routerChain) {
         super(url == null && CollectionUtils.isNotEmpty(invokers) ? invokers.get(0).getUrl() : url, routerChain, false);
         if (CollectionUtils.isEmpty(invokers)) {
@@ -91,16 +100,29 @@ public class StaticDirectory<T> extends AbstractDirectory<T> {
         invokers.clear();
     }
 
+    /**
+     * 在创建 StaticDirectory 对象的时候，如果没有传入 RouterChain 对象，
+     * 则会根据 URL 构造一个包含内置 Router 的 RouterChain 对象
+     */
     public void buildRouterChain() {
-        RouterChain<T> routerChain = RouterChain.buildChain(getUrl());
+        RouterChain<T> routerChain = RouterChain.buildChain(getUrl());// 创建内置Router集合
+        // 将invokers与RouterChain关联
         routerChain.setInvokers(invokers);
+        // 设置routerChain字段
         this.setRouterChain(routerChain);
     }
 
+    /**
+     * 在 doList() 方法中，StaticDirectory 会使用 RouterChain 中的 Router
+     * 从 invokers 集合中过滤出符合路由规则的 Invoker 对象集合，具体实现如下：
+     * @param invocation
+     * @return
+     * @throws RpcException
+     */
     @Override
     protected List<Invoker<T>> doList(Invocation invocation) throws RpcException {
         List<Invoker<T>> finalInvokers = invokers;
-        if (routerChain != null) {
+        if (routerChain != null) {// 通过RouterChain过滤出符合条件的Invoker集合
             try {
                 finalInvokers = routerChain.route(getConsumerUrl(), invocation);
             } catch (Throwable t) {

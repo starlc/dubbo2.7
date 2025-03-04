@@ -44,6 +44,8 @@ import static org.apache.dubbo.common.constants.CommonConstants.DUBBO;
  * <p>
  * Being aware of it's not a thread-safe implementation.
  *
+ * ConfigurableMetadataServiceExporter 的核心实现是 export() 方法，
+ * 其中会创建一个 ServiceConfig 对象完成 MetadataService 服务的发布：
  * @see MetadataServiceExporter
  * @see ServiceConfig
  * @see ConfigManager
@@ -65,17 +67,18 @@ public class ConfigurableMetadataServiceExporter implements MetadataServiceExpor
     public ConfigurableMetadataServiceExporter export() {
 
         if (!isExported()) {
-
+            // 创建ServiceConfig对象
             ServiceConfig<MetadataService> serviceConfig = new ServiceConfig<>();
             serviceConfig.setApplication(getApplicationConfig());
             serviceConfig.setRegistries(getRegistries());
-            serviceConfig.setProtocol(generateMetadataProtocol());
-            serviceConfig.setInterface(MetadataService.class);
-            serviceConfig.setRef(metadataService);
-            serviceConfig.setGroup(getApplicationConfig().getName());
-            serviceConfig.setVersion(metadataService.version());
+            serviceConfig.setProtocol(generateMetadataProtocol());// 设置Protocol（默认是Dubbo）
+            serviceConfig.setInterface(MetadataService.class);// 设置服务接口
+            serviceConfig.setRef(metadataService);// 设置MetadataService对象
+            serviceConfig.setGroup(getApplicationConfig().getName());// 设置group
+            serviceConfig.setVersion(metadataService.version());// 设置version
 
             // export
+            // 发布MetadataService服务，ServiceConfig发布服务的流程在前面已经详细分析过了，这里不再展开
             serviceConfig.export();
 
             if (logger.isInfoEnabled()) {

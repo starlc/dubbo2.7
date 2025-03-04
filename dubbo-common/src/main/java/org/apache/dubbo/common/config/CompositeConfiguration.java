@@ -26,15 +26,27 @@ import java.util.List;
 
 /**
  * This is an abstraction specially customized for the sequence Dubbo retrieves properties.
+ * CompositeConfiguration 是一个复合的 Configuration 对象，
+ * 其核心就是将多个 Configuration 对象组合起来，对外表现为一个 Configuration 对象。
+ *
+ * CompositeConfiguration 组合的 Configuration 对象都保存在 configList 字段中（LinkedList<Configuration> 集合），
+ * CompositeConfiguration 提供了 addConfiguration() 方法用于向 configList 集合中添加 Configuration 对象
  */
 public class CompositeConfiguration implements Configuration {
     private Logger logger = LoggerFactory.getLogger(CompositeConfiguration.class);
 
+    /**
+     * 维护了一个 prefix 字段和 id 字段，两者可以作为 Key 的前缀进行查询
+     */
     private String id;
+    /**
+     * 维护了一个 prefix 字段和 id 字段，两者可以作为 Key 的前缀进行查询
+     */
     private String prefix;
 
     /**
      * List holding all the configuration
+     * 持有的所有配置
      */
     private List<Configuration> configList = new LinkedList<Configuration>();
 
@@ -72,6 +84,7 @@ public class CompositeConfiguration implements Configuration {
 
     public void addConfiguration(Configuration configuration) {
         if (configList.contains(configuration)) {
+            // 不会重复添加同一个Configuration对象
             return;
         }
         this.configList.add(configuration);
@@ -88,9 +101,9 @@ public class CompositeConfiguration implements Configuration {
     @Override
     public Object getInternalProperty(String key) {
         Configuration firstMatchingConfiguration = null;
-        for (Configuration config : configList) {
+        for (Configuration config : configList) {// 遍历所有Configuration对象
             try {
-                if (config.containsKey(key)) {
+                if (config.containsKey(key)) {// 得到第一个包含指定Key的Configuration对象
                     firstMatchingConfiguration = config;
                     break;
                 }
@@ -98,7 +111,7 @@ public class CompositeConfiguration implements Configuration {
                 logger.error("Error when trying to get value for key " + key + " from " + config + ", will continue to try the next one.");
             }
         }
-        if (firstMatchingConfiguration != null) {
+        if (firstMatchingConfiguration != null) {// 通过该Configuration查询Key并返回配置值
             return firstMatchingConfiguration.getProperty(key);
         } else {
             return null;
@@ -113,14 +126,17 @@ public class CompositeConfiguration implements Configuration {
     @Override
     public Object getProperty(String key, Object defaultValue) {
         Object value = null;
-        if (StringUtils.isNotEmpty(prefix)) {
-            if (StringUtils.isNotEmpty(id)) {
+        if (StringUtils.isNotEmpty(prefix)) {// 检查prefix
+            if (StringUtils.isNotEmpty(id)) {// 检查id
+                // prefix和id都作为前缀，然后拼接key进行查询
                 value = getInternalProperty(prefix + id + "." + key);
             }
             if (value == null) {
+                // 只把prefix作为前缀，拼接key进行查询
                 value = getInternalProperty(prefix + key);
             }
         } else {
+            // 若prefix为空，则直接用key进行查询
             value = getInternalProperty(key);
         }
         return value != null ? value : defaultValue;

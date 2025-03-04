@@ -25,7 +25,10 @@ import static org.apache.dubbo.common.constants.CommonConstants.DEFAULT_KEY;
 
 /**
  * Abstract {@link DynamicConfigurationFactory} implementation with cache ability
- *
+ * 其中会维护一个 dynamicConfigurations 集合（Map<String, DynamicConfiguration> 类型），
+ * 在 getDynamicConfiguration() 方法中会填充该集合，实现缓存DynamicConfiguration 对象的效果。
+ * 同时，AbstractDynamicConfigurationFactory 提供了一个 createDynamicConfiguration() 方法给子类实现，
+ * 来创建DynamicConfiguration 对象。
  * @see DynamicConfigurationFactory
  * @since 2.7.5
  */

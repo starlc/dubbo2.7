@@ -1,0 +1,202 @@
+@startuml
+title Dubbo服务导出完整流程(包含配置中心、元数据中心和注册中心)
+
+box "Service Export" #LightYellow
+participant "ServiceBean" as serviceBean
+participant "ServiceConfig" as config
+participant "ServiceRepository" as repository
+participant "ExtensionLoader" as loader
+participant "ProxyFactory" as proxyFactory
+participant "ConfigCenter" as configCenter
+participant "MetadataReport" as metadata
+participant "RegistryProtocol" as registry
+participant "DubboProtocol" as protocol
+participant "ExecutorRepository" as executor
+participant "HeaderExchangeServer" as exchangeServer
+participant "NettyServer" as nettyServer
+participant "ZookeeperRegistry" as zk
+end box
+
+-> serviceBean: onApplicationEvent()
+activate serviceBean
+
+serviceBean -> config: export()
+activate config
+
+== 配置检查和处理阶段 ==
+config -> config: checkAndUpdateSubConfigs()
+note right
+  1. 检查接口和方法配置
+  2. 检查应用配置
+  3. 检查注册中心配置
+  4. 检查协议配置
+end note
+
+config -> repository: registerService()
+note right: 注册服务到本地Repository
+
+== 配置中心处理阶段 ==
+config -> configCenter: getConfig()
+activate configCenter
+note right
+  1. 获取外部化配置
+  2. 动态配置更新
+  3. 配置变更监听
+end note
+
+configCenter --> config
+deactivate configCenter
+
+== 元数据中心处理阶段 ==
+config -> metadata: storeProviderMetadata()
+activate metadata
+note right
+  1. 存储服务接口信息
+  2. 存储方法参数信息
+  3. 存储服务定义元数据
+end note
+
+metadata -> metadata: saveServiceMetadata()
+note right
+  1. 服务定义
+  2. 服务版本
+  3. 服务分组
+end note
+
+metadata --> config
+deactivate metadata
+
+== 本地导出阶段 ==
+config -> loader: getAdaptiveExtension()
+activate loader
+
+loader -> proxyFactory: getProxy()
+activate proxyFactory
+note right
+  1. 生成服务代理
+  2. 创建Invoker
+end note
+
+proxyFactory --> loader
+deactivate proxyFactory
+
+loader --> config
+deactivate loader
+
+config -> executor: createExecutorIfAbsent()
+activate executor
+note right
+  1. 创建线程池
+  2. 配置线程池参数
+  3. 管理线程池生命周期
+end note
+
+executor --> config
+deactivate executor
+
+== 远程导出阶段 ==
+config -> registry: export()
+activate registry
+
+registry -> protocol: export()
+activate protocol
+
+protocol -> exchangeServer: bind()
+activate exchangeServer
+
+exchangeServer -> nettyServer: bind()
+activate nettyServer
+
+nettyServer -> nettyServer: doOpen()
+note right
+  1. 创建ServerBootstrap
+  2. 配置Boss/Worker线程池
+  3. 设置Channel参数
+  4. 配置编解码器
+  5. 添加Handler链:
+     - NettyServerHandler
+     - DecodeHandler
+     - MultiMessageHandler
+     - HeartbeatHandler
+     - AllChannelHandler
+     - HeaderExchangeHandler
+end note
+
+nettyServer -> nettyServer: doBind()
+note right
+  1. 绑定服务端口
+  2. 启动服务器
+  3. 等待端口绑定完成
+end note
+
+nettyServer --> exchangeServer
+deactivate nettyServer
+
+exchangeServer --> protocol
+deactivate exchangeServer
+
+protocol --> registry
+deactivate protocol
+
+== 注册中心处理阶段 ==
+registry -> zk: register()
+activate zk
+note right
+  1. 创建服务节点
+  2. 写入服务数据
+  3. 添加状态监听器:
+     - RECONNECTED: 重新获取地址
+     - NEW_SESSION: 重新注册
+     - SESSION_LOST: 等待重连
+end note
+
+zk --> registry
+deactivate zk
+
+registry --> config
+deactivate registry
+
+config --> serviceBean
+deactivate config
+
+<-- serviceBean
+deactivate serviceBean
+
+note right of configCenter
+  配置中心职责:
+  1. 外部化配置管理
+  2. 动态配置下发
+  3. 配置变更通知
+end note
+
+note right of metadata
+  元数据中心职责:
+  1. 服务接口存储
+  2. 服务定义管理
+  3. 服务治理支持
+end note
+
+note right of executor
+  线程池管理:
+  1. 创建线程池
+  2. 管理线程池生命周期
+  3. 线程池参数配置
+end note
+
+note right of nettyServer
+  网络服务器:
+  1. 服务端启动
+  2. 端口绑定
+  3. Handler配置
+  4. 编解码器配置
+end note
+
+note right of zk
+  注册中心职责:
+  1. 服务注册
+  2. 服务发现
+  3. 服务状态监控
+  4. 服务变更通知
+end note
+
+@enduml

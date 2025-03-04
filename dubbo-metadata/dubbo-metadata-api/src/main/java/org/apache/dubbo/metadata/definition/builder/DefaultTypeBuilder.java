@@ -30,6 +30,7 @@ import static org.apache.dubbo.common.utils.ClassUtils.isSimpleType;
 
 /**
  * 2015/1/27.
+ * 对于没有特定 TypeBuilder 实现的类型，会使用 DefaultTypeBuilder
  */
 public final class DefaultTypeBuilder {
 

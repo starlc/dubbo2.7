@@ -69,11 +69,15 @@ public class DefaultExecutorRepository implements ExecutorRepository {
      * @return
      */
     public synchronized ExecutorService createExecutorIfAbsent(URL url) {
+        // 根据URL中的side参数值决定第一层key
         Map<Integer, ExecutorService> executors = data.computeIfAbsent(EXECUTOR_SERVICE_COMPONENT_KEY, k -> new ConcurrentHashMap<>());
         //issue-7054:Consumer's executor is sharing globally, key=Integer.MAX_VALUE. Provider's executor is sharing by protocol.
+        // 根据URL中的port参数值决定第二层key comsumer 则默认为MAX_VALUE 否则为端口号
         Integer portKey = CONSUMER_SIDE.equalsIgnoreCase(url.getParameter(SIDE_KEY)) ? Integer.MAX_VALUE : url.getPort();
         ExecutorService executor = executors.computeIfAbsent(portKey, k -> createExecutor(url));
         // If executor has been shut down, create a new one
+        // 如果缓存中相应的线程池已关闭，则同样需要调用createExecutor()方法
+        // 创建新的线程池，并替换掉缓存中已关闭的线程持，这里省略这段逻辑
         if (executor.isShutdown() || executor.isTerminated()) {
             executors.remove(portKey);
             executor = createExecutor(url);
@@ -168,6 +172,7 @@ public class DefaultExecutorRepository implements ExecutorRepository {
     }
 
     private ExecutorService createExecutor(URL url) {
+        //默认创建 FixedThreadPool 核心线程数为200 队列为0 也就是同步队列
         return (ExecutorService) ExtensionLoader.getExtensionLoader(ThreadPool.class).getAdaptiveExtension().getExecutor(url);
     }
 

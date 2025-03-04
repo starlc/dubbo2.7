@@ -48,11 +48,17 @@ import static org.apache.dubbo.common.constants.CommonConstants.PATH_SEPARATOR;
 
 /**
  * ZookeeperMetadataReport
+ *
+ * 在 ZookeeperMetadataReport 中维护了一个 ZookeeperClient 实例用来和 ZooKeeper 进行交互。
+ * ZookeeperMetadataReport 读写元数据的根目录是 metadataReportURL 的 group 参数值，默认值为 dubbo。
  */
 public class ZookeeperMetadataReport extends AbstractMetadataReport {
 
     private final String root;
 
+    /**
+     * ZookeeperClient 实例用来和 ZooKeeper 进行交互
+     */
     final ZookeeperClient zkClient;
 
     private Gson gson = new Gson();
@@ -89,6 +95,14 @@ public class ZookeeperMetadataReport extends AbstractMetadataReport {
         storeMetadata(consumerMetadataIdentifier, value);
     }
 
+    /**
+     * doSaveMetadata()、doRemoveMetadata() 以及 doGetExportedURLs() 方法参数是
+     * ServiceMetadataIdentifier 对象，对应的 ZNode 节点 path 是：
+     *
+     * /dubbo/metadata/服务接口/version/group/side/protocol/revision
+     * @param metadataIdentifier
+     * @param url
+     */
     @Override
     protected void doSaveMetadata(ServiceMetadataIdentifier metadataIdentifier, URL url) {
         zkClient.create(getNodePath(metadataIdentifier), URL.encode(url.toFullString()), false);
@@ -108,6 +122,14 @@ public class ZookeeperMetadataReport extends AbstractMetadataReport {
         return new ArrayList<String>(Arrays.asList(URL.decode(content)));
     }
 
+    /**
+     * doSaveSubscriberData()、doGetSubscribedURLs() 方法的参数是 SubscriberMetadataIdentifier 对象，
+     * 对应的 ZNode 节点 path 是：
+     *
+     * /dubbo/metadata/服务接口/version/group/side/revision
+     * @param subscriberMetadataIdentifier
+     * @param urls
+     */
     @Override
     protected void doSaveSubscriberData(SubscriberMetadataIdentifier subscriberMetadataIdentifier, String urls) {
         zkClient.create(getNodePath(subscriberMetadataIdentifier), urls, false);
@@ -123,6 +145,13 @@ public class ZookeeperMetadataReport extends AbstractMetadataReport {
         return zkClient.getContent(getNodePath(metadataIdentifier));
     }
 
+    /**
+     * MetadataIdentifier 对象对应 ZNode 节点的 path 默认格式是 :
+     *
+     * /dubbo/metadata/服务接口/version/group/side/application
+     * @param metadataIdentifier
+     * @param v
+     */
     private void storeMetadata(MetadataIdentifier metadataIdentifier, String v) {
         zkClient.create(getNodePath(metadataIdentifier), v, false);
     }
