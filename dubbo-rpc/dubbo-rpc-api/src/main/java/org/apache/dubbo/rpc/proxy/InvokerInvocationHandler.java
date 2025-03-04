@@ -33,9 +33,13 @@ import java.lang.reflect.Method;
 
 /**
  * InvokerHandler
+ * JDK动态代理的InvocationHandler实现类
  */
 public class InvokerInvocationHandler implements InvocationHandler {
     private static final Logger logger = LoggerFactory.getLogger(InvokerInvocationHandler.class);
+    /**
+     * Invoker 不是一个简单的 DubboInvoker 对象，而是在 DubboInvoker 之上经过一系列装饰器修饰的 Invoker 对象。
+     */
     private final Invoker<?> invoker;
     private ConsumerModel consumerModel;
     private URL url;
@@ -64,12 +68,13 @@ public class InvokerInvocationHandler implements InvocationHandler {
 
     @Override
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+        // 对于Object中定义的方法，直接调用Invoker对象的相应方法即可
         if (method.getDeclaringClass() == Object.class) {
             return method.invoke(invoker, args);
         }
         String methodName = method.getName();
         Class<?>[] parameterTypes = method.getParameterTypes();
-        if (parameterTypes.length == 0) {
+        if (parameterTypes.length == 0) {// 对$destroy等方法的特殊处理
             if ("toString".equals(methodName)) {
                 return invoker.toString();
             } else if ("$destroy".equals(methodName)) {
@@ -81,6 +86,7 @@ public class InvokerInvocationHandler implements InvocationHandler {
         } else if (parameterTypes.length == 1 && "equals".equals(methodName)) {
             return invoker.equals(args[0]);
         }
+        // 创建RpcInvocation对象，后面会作为远程RPC调用的参数
         RpcInvocation rpcInvocation = new RpcInvocation(method, invoker.getInterface().getName(), protocolServiceKey, args);
         String serviceKey = invoker.getUrl().getServiceKey();
         rpcInvocation.setTargetServiceUniqueName(serviceKey);
@@ -93,6 +99,7 @@ public class InvokerInvocationHandler implements InvocationHandler {
             rpcInvocation.put(Constants.METHOD_MODEL, consumerModel.getMethodModel(method));
         }
 
+        // 调用invoke()方法发起远程调用，拿到AsyncRpcResult之后，调用recreate()方法获取响应结果(或是Future)
         return invoker.invoke(rpcInvocation).recreate();
     }
 }

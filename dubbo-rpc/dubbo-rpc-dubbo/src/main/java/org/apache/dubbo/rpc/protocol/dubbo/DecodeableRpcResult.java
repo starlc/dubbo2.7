@@ -42,6 +42,9 @@ import java.lang.reflect.Type;
 import static org.apache.dubbo.rpc.Constants.SERIALIZATION_ID_KEY;
 import static org.apache.dubbo.rpc.Constants.SERIALIZATION_SECURITY_CHECK_KEY;
 
+/**
+ * DecodeableRpcResult 表示的是一个响应，与其对应的是 DecodeableRpcInvocation（它表示的是请求）
+ */
 public class DecodeableRpcResult extends AppResponse implements Codec, Decodeable {
 
     private static final Logger log = LoggerFactory.getLogger(DecodeableRpcResult.class);
@@ -74,27 +77,43 @@ public class DecodeableRpcResult extends AppResponse implements Codec, Decodeabl
         throw new UnsupportedOperationException();
     }
 
+    /**
+     * DecodeableRpcResult 解码核心流程大致如下：
+     *
+     * 首先，确定当前使用的序列化方式，并对字节流进行解码。
+     *
+     * 然后，读取一个 byte 的标志位，其可选值有六种枚举，下面我们就以其中的 RESPONSE_VALUE_WITH_ATTACHMENTS 为例进行分析。
+     *
+     * 标志位为 RESPONSE_VALUE_WITH_ATTACHMENTS 时，会先通过 handleValue() 方法处理返回值，
+     * 其中会根据 RpcInvocation 中记录的返回值类型读取返回值，并设置到 result 字段。
+     *
+     * 最后，再通过 handleAttachment() 方法读取返回的附加信息，并设置到 DecodeableRpcResult 的 attachments 字段中。
+     * @param channel channel.
+     * @param input   input stream.
+     * @return
+     * @throws IOException
+     */
     @Override
     public Object decode(Channel channel, InputStream input) throws IOException {
         if (log.isDebugEnabled()) {
             Thread thread = Thread.currentThread();
             log.debug("Decoding in thread -- [" + thread.getName() + "#" + thread.getId() + "]");
         }
-
+        // 反序列化
         ObjectInput in = CodecSupport.getSerialization(channel.getUrl(), serializationType)
                 .deserialize(channel.getUrl(), input);
 
         byte flag = in.readByte();
         switch (flag) {
-            case DubboCodec.RESPONSE_NULL_VALUE:
+            case DubboCodec.RESPONSE_NULL_VALUE://2
                 break;
-            case DubboCodec.RESPONSE_VALUE:
+            case DubboCodec.RESPONSE_VALUE://1
                 handleValue(in);
                 break;
-            case DubboCodec.RESPONSE_WITH_EXCEPTION:
+            case DubboCodec.RESPONSE_WITH_EXCEPTION://0
                 handleException(in);
                 break;
-            case DubboCodec.RESPONSE_NULL_VALUE_WITH_ATTACHMENTS:
+            case DubboCodec.RESPONSE_NULL_VALUE_WITH_ATTACHMENTS://5
                 handleAttachment(in);
                 break;
             case DubboCodec.RESPONSE_VALUE_WITH_ATTACHMENTS:

@@ -95,6 +95,7 @@ public class RemoteMetadataServiceImpl {
         String side = url.getParameter(SIDE_KEY);
         if (PROVIDER_SIDE.equalsIgnoreCase(side)) {
             //TODO, the params part is duplicate with that stored by exportURL(url), can be further optimized in the future.
+            // 获取URL中的side参数值，决定调用publishProvider()还是publishConsumer()方法
             publishProvider(url);
         } else {
             //TODO, only useful for ops showing the url parameters, this is duplicate with subscribeURL(url), can be removed in the future.
@@ -102,20 +103,30 @@ public class RemoteMetadataServiceImpl {
         }
     }
 
+    /**
+     * 在 publishProvider() 方法中，首先会根据 Provider URL 创建对应的 FullServiceDefinition 对象，
+     * 然后通过 MetadataReport 进行上报，
+     * @param providerUrl
+     * @throws RpcException
+     */
     private void publishProvider(URL providerUrl) throws RpcException {
         //first add into the list
         // remove the individual param
+        // 删除pid、timestamp、bind.ip、bind.port等参数
         providerUrl = providerUrl.removeParameters(PID_KEY, TIMESTAMP_KEY, Constants.BIND_IP_KEY,
                 Constants.BIND_PORT_KEY, TIMESTAMP_KEY);
 
         try {
+            // 获取服务接口名称
             String interfaceName = providerUrl.getParameter(INTERFACE_KEY);
             if (StringUtils.isNotEmpty(interfaceName)) {
-                Class interfaceClass = Class.forName(interfaceName);
+                Class interfaceClass = Class.forName(interfaceName); // 反射
+                // 创建服务接口对应的FullServiceDefinition对象，URL中的参数会记录到FullServiceDefinition的params集合中
                 FullServiceDefinition fullServiceDefinition = ServiceDefinitionBuilder.buildFullDefinition(interfaceClass,
                         providerUrl.getParameters());
                 for (Map.Entry<String, MetadataReport> entry : getMetadataReports().entrySet()) {
                     MetadataReport metadataReport = entry.getValue();
+                    // 获取MetadataReport并上报FullServiceDefinition
                     metadataReport.storeProviderMetadata(new MetadataIdentifier(providerUrl.getServiceInterface(),
                             providerUrl.getParameter(VERSION_KEY), providerUrl.getParameter(GROUP_KEY),
                             PROVIDER_SIDE, providerUrl.getParameter(APPLICATION_KEY)), fullServiceDefinition);
@@ -129,6 +140,12 @@ public class RemoteMetadataServiceImpl {
         }
     }
 
+    /**
+     * publishConsumer() 方法则相对比较简单：首先会清理 Consumer URL 中 pid、timestamp 等参数，
+     * 然后将 Consumer URL 中的参数集合进行上报。
+     * @param consumerURL
+     * @throws RpcException
+     */
     private void publishConsumer(URL consumerURL) throws RpcException {
         final URL url = consumerURL.removeParameters(PID_KEY, TIMESTAMP_KEY, Constants.BIND_IP_KEY,
                 Constants.BIND_PORT_KEY, TIMESTAMP_KEY);

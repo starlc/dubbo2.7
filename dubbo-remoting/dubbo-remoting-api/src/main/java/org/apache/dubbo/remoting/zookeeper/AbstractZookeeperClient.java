@@ -28,6 +28,23 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.Executor;
 
+/**
+ *
+ * 缓存当前 ZookeeperClient 实例创建的持久 ZNode 节点；
+ * 管理当前 ZookeeperClient 实例添加的各类监听器；
+ * 管理当前 ZookeeperClient 的运行状态。
+ * dubbo-remoting-zookeeper 对外提供了 StateListener、DataListener 和 ChildListener 三种类型的监听器。
+ *
+ * 这里的 createTargetDataListener() 方法和 addTargetDataListener() 方法都是抽象方法，由 AbstractZookeeperClient 的子类实现，TargetDataListener 是 AbstractZookeeperClient 中标记的一个泛型。
+ *
+ * 为什么 AbstractZookeeperClient 要使用泛型定义？
+ * 这是因为不同的 ZookeeperClient 实现可能依赖不同的 Zookeeper 客户端组件，
+ * 不同 Zookeeper 客户端组件的监听器实现也有所不同，而整个 dubbo-remoting-zookeeper
+ * 模块对外暴露的监听器是统一的，就是上面介绍的那三种。
+ * 因此，这时就需要一层转换进行解耦，这层解耦就是通过 TargetDataListener 完成的。
+ * @param <TargetDataListener>
+ * @param <TargetChildListener>
+ */
 public abstract class AbstractZookeeperClient<TargetDataListener, TargetChildListener> implements ZookeeperClient {
 
     protected static final Logger logger = LoggerFactory.getLogger(AbstractZookeeperClient.class);
@@ -45,6 +62,10 @@ public abstract class AbstractZookeeperClient<TargetDataListener, TargetChildLis
 
     private volatile boolean closed = false;
 
+    /**
+     * 缓存了当前 ZookeeperClient 创建的持久 ZNode 节点路径，在创建 ZNode 节点之前，会先查这个缓存，
+     * 而不是与 Zookeeper 交互来判断持久 ZNode 节点是否存在，这就减少了一次与 Zookeeper 的交互。
+     */
     private final Set<String> persistentExistNodePath = new ConcurrentHashSet<>();
 
     public AbstractZookeeperClient(URL url) {
@@ -82,6 +103,7 @@ public abstract class AbstractZookeeperClient<TargetDataListener, TargetChildLis
         if (ephemeral) {
             createEphemeral(path);
         } else {
+            //创建的持久节点，添加到本地缓存 persistentExistNodePath
             createPersistent(path);
             persistentExistNodePath.add(path);
         }
@@ -115,8 +137,11 @@ public abstract class AbstractZookeeperClient<TargetDataListener, TargetChildLis
 
     @Override
     public void addDataListener(String path, DataListener listener, Executor executor) {
+        // 获取指定path上的DataListener集合
         ConcurrentMap<DataListener, TargetDataListener> dataListenerMap = listeners.computeIfAbsent(path, k -> new ConcurrentHashMap<>());
+        // 查询该DataListener关联的TargetDataListener
         TargetDataListener targetListener = dataListenerMap.computeIfAbsent(listener, k -> createTargetDataListener(path, k));
+        // 通过TargetDataListener在指定的path上添加监听
         addTargetDataListener(path, targetListener, executor);
     }
 

@@ -21,6 +21,9 @@ import org.apache.dubbo.common.utils.StringUtils;
 import org.apache.dubbo.remoting.RemotingServer;
 import org.apache.dubbo.rpc.ProtocolServer;
 
+/**
+ * 对RemoteServer的简易封装
+ */
 public class DubboProtocolServer implements ProtocolServer {
 
     private RemotingServer server;

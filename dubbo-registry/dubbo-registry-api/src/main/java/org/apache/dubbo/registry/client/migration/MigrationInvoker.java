@@ -39,6 +39,17 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.apache.dubbo.rpc.cluster.Constants.REFER_KEY;
 
+/**
+ * 迁移Invoker 在reference 引用时创建的invoker对象 包装的
+ * MigrationInvoker的主要作用是实现服务调用方式的迁移，它管理着两种不同的调用方式：
+ *
+ * 1. 主要职责 ：
+ * - 管理接口级别调用（Interface-level）和应用级别调用（Application-level）的切换
+ * - 处理服务发现方式的迁移
+ * - 确保迁移过程的平滑过渡
+ * 2. 两种调用方式 ：
+ * @param <T>
+ */
 public class MigrationInvoker<T> implements MigrationClusterInvoker<T> {
     private Logger logger = LoggerFactory.getLogger(MigrationInvoker.class);
 
@@ -49,9 +60,9 @@ public class MigrationInvoker<T> implements MigrationClusterInvoker<T> {
     private Class<T> type;
     private RegistryProtocol registryProtocol;
 
-    private volatile ClusterInvoker<T> invoker;
-    private volatile ClusterInvoker<T> serviceDiscoveryInvoker;
-    private volatile ClusterInvoker<T> currentAvailableInvoker;
+    private volatile ClusterInvoker<T> invoker;// 接口级别调用
+    private volatile ClusterInvoker<T> serviceDiscoveryInvoker;// 应用级别调用
+    private volatile ClusterInvoker<T> currentAvailableInvoker;// 当前可用的调用方式
 
     private MigrationRule rule;
 
@@ -155,7 +166,9 @@ public class MigrationInvoker<T> implements MigrationClusterInvoker<T> {
 
     @Override
     public synchronized void fallbackToInterfaceInvoker() {
+        // 1. 刷新接口级别的 Invoker
         refreshInterfaceInvoker();
+        // 2. 设置监听器，当接口级别调用可用时，销毁应用级别调用
         setListener(invoker, () -> {
             this.destroyServiceDiscoveryInvoker(this.serviceDiscoveryInvoker);
         });
@@ -330,6 +343,7 @@ public class MigrationInvoker<T> implements MigrationClusterInvoker<T> {
             if (logger.isDebugEnabled()) {
                 logger.debug("Re-subscribing interface addresses for interface " + type.getName());
             }
+            //核心逻辑，又走registryProtocol 实际是 InterfaceCompatibleRegistryProtocol
             invoker = registryProtocol.getInvoker(cluster, registry, type, url);
 
             if (migrationMultiRegistry) {

@@ -79,17 +79,21 @@ public class NettyClient extends AbstractClient {
     public NettyClient(final URL url, final ChannelHandler handler) throws RemotingException {
     	// you can customize name and type of client thread pool by THREAD_NAME_KEY and THREADPOOL_KEY in CommonConstants.
     	// the handler will be wrapped: MultiMessageHandler->HeartbeatHandler->handler
+        ////MultiMessageHandler->HeartbeatHandler->AllChannelHandler->handler
     	super(url, wrapChannelHandler(url, handler));
     }
 
     /**
      * Init bootstrap
+     * doOpen() 方法中会通过 Bootstrap 构建客户端，其中会完成连接超时时间、keepalive 等参数的设置，以及 ChannelHandler 的创建和注册，
      *
      * @throws Throwable
      */
     @Override
     protected void doOpen() throws Throwable {
+        // 创建NettyClientHandler
         final NettyClientHandler nettyClientHandler = createNettyClientHandler();
+        // 创建Bootstrap
         bootstrap = new Bootstrap();
         initBootstrap(nettyClientHandler);
     }
@@ -100,30 +104,50 @@ public class NettyClient extends AbstractClient {
 
     protected void initBootstrap(NettyClientHandler nettyClientHandler) {
         bootstrap.group(EVENT_LOOP_GROUP)
+                /**
+                 * TCP_NODELAY (客户端选项) ：
+                 * - 禁用 Nagle 算法
+                 * - 不会将小包组合成大包发送
+                 * - 提高实时性，降低延迟
+                 * - 适合于 RPC 这样的请求-响应模式通信
+                 * 3. SO_KEEPALIVE (客户端选项) ：
+                 * - 启用 TCP keepalive 机制
+                 * - 定期检测连接是否存活
+                 * - 可以检测出死连接
+                 * - 由 URL 参数中的 keepalive 参数控制
+                 *
+                 * 4. ALLOCATOR (客户端选项) ：
+                 * - 设置 ByteBuf 的分配器
+                 * - 使用池化的 ByteBuf 分配器
+                 * - 可以重用 ByteBuf，减少内存分配和 GC 压力
+                 * - 提高性能，特别是在高并发场景下
+                 */
                 .option(ChannelOption.SO_KEEPALIVE, true)
                 .option(ChannelOption.TCP_NODELAY, true)
                 .option(ChannelOption.ALLOCATOR, PooledByteBufAllocator.DEFAULT)
                 //.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, getTimeout())
                 .channel(socketChannelClass());
-
+        // 设置连接超时时间，这里使用到AbstractEndpoint中的connectTimeout字段 3000
         bootstrap.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, Math.max(DEFAULT_CONNECT_TIMEOUT, getConnectTimeout()));
         bootstrap.handler(new ChannelInitializer<SocketChannel>() {
 
             @Override
             protected void initChannel(SocketChannel ch) throws Exception {
+                // 心跳请求的时间间隔 60s
                 int heartbeatInterval = UrlUtils.getHeartbeat(getUrl());
 
                 if (getUrl().getParameter(SSL_ENABLED_KEY, false)) {
                     ch.pipeline().addLast("negotiation", SslHandlerInitializer.sslClientHandler(getUrl(), nettyClientHandler));
                 }
-
+                // 通过NettyCodecAdapter创建Netty中的编解码器，这里不再重复介绍
                 NettyCodecAdapter adapter = new NettyCodecAdapter(getCodec(), getUrl(), NettyClient.this);
+                // 注册ChannelHandler
                 ch.pipeline()//.addLast("logging",new LoggingHandler(LogLevel.INFO))//for debug
                         .addLast("decoder", adapter.getDecoder())
                         .addLast("encoder", adapter.getEncoder())
                         .addLast("client-idle-handler", new IdleStateHandler(heartbeatInterval, 0, 0, MILLISECONDS))
                         .addLast("handler", nettyClientHandler);
-
+                // 如果需要Socks5Proxy，需要添加Socks5ProxyHandler(略)
                 String socksProxyHost = ConfigUtils.getProperty(SOCKS_PROXY_HOST);
                 if(socksProxyHost != null) {
                     int socksProxyPort = Integer.parseInt(ConfigUtils.getProperty(SOCKS_PROXY_PORT, DEFAULT_SOCKS_PROXY_PORT));

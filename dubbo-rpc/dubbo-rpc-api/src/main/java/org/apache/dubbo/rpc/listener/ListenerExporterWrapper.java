@@ -27,6 +27,8 @@ import java.util.List;
 
 /**
  * ListenerExporter
+ *
+ * 实现类可以通过实现 exported() 方法和 unexported() 方法监听服务暴露事件以及取消暴露事件
  */
 public class ListenerExporterWrapper<T> implements Exporter<T> {
 
@@ -42,6 +44,7 @@ public class ListenerExporterWrapper<T> implements Exporter<T> {
         }
         this.exporter = exporter;
         this.listeners = listeners;
+        //循环调用全部 ExporterListener 的 exported() 方法，通知其服务暴露的事件
         if (CollectionUtils.isNotEmpty(listeners)) {
             RuntimeException exception = null;
             for (ExporterListener listener : listeners) {

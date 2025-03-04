@@ -24,27 +24,32 @@ import org.apache.dubbo.common.extension.SPI;
  *
  * @see org.apache.dubbo.remoting.Transporter#bind(org.apache.dubbo.common.URL, ChannelHandler)
  * @see org.apache.dubbo.remoting.Transporter#connect(org.apache.dubbo.common.URL, ChannelHandler)
+ *
+ * ChannelHandler 是注册在 Channel 上的消息处理器
+ * 主要用来处理IO上面的事件connected 、disconnected 、sent等
+ * AbstractServer、AbstractClient 以及 Channel 实现，都是通过 AbstractPeer 实现了 ChannelHandler 接口，
+ * 但只是做了一层简单的委托（也可以说成是装饰器），将全部方法委托给了其底层关联的 ChannelHandler 对象。
  */
 @SPI
 public interface ChannelHandler {
 
     /**
      * on channel connected.
-     *
+     * 已连接
      * @param channel channel.
      */
     void connected(Channel channel) throws RemotingException;
 
     /**
      * on channel disconnected.
-     *
+     * 已断开
      * @param channel channel.
      */
     void disconnected(Channel channel) throws RemotingException;
 
     /**
      * on message sent.
-     *
+     * 消息已发送
      * @param channel channel.
      * @param message message.
      */
@@ -52,7 +57,7 @@ public interface ChannelHandler {
 
     /**
      * on message received.
-     *
+     * 消息已接收
      * @param channel channel.
      * @param message message.
      */
@@ -60,7 +65,7 @@ public interface ChannelHandler {
 
     /**
      * on exception caught.
-     *
+     * 异常已捕获
      * @param channel   channel.
      * @param exception exception.
      */

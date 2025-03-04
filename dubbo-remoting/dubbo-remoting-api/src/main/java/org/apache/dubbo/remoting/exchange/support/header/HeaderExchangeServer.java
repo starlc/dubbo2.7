@@ -50,6 +50,9 @@ import static org.apache.dubbo.remoting.utils.UrlUtils.getIdleTimeout;
 
 /**
  * ExchangeServerImpl
+ * 是 RemotingServer 的装饰器，实现自 RemotingServer 接口的大部分方法都委托给了所修饰的 RemotingServer 对象
+ * 在 HeaderExchangeServer 的构造方法中，会启动一个 CloseTimerTask 定时任务，
+ * 定期关闭长时间空闲的连接，具体的实现方式与 HeaderExchangeClient 中的两个定时任务类似
  */
 public class HeaderExchangeServer implements ExchangeServer {
 
@@ -99,26 +102,46 @@ public class HeaderExchangeServer implements ExchangeServer {
         doClose();
         server.close();
     }
-
+    /**
+     * 1。将被修饰的 RemotingServer 的 closing 字段设置为 true，表示这个 Server 端正在关闭，不再接受新 Client 的连接。
+     * 你可以回顾第 19 课时中介绍的 AbstractServer.connected() 方法，会发现 Server 正在关闭或是已经关闭时，则直接关闭新建的 Client 连接。
+     *
+     * 2.向 Client 发送一个携带 ReadOnly 事件的请求（根据 URL 中的配置决定是否发送，默认为发送）。
+     * 在接收到该请求之后，Client 端的 HeaderExchangeHandler 会在 Channel 上添加 Key 为 “channel.readonly” 的附加信息，
+     * 上层调用方会根据该附加信息，判断该连接是否可写。
+     *
+     * 3 循环去检测是否还存在 Client 与当前 Server 维持着长连接，直至全部 Client 断开连接或超时。
+     *
+     * 4 更新 closed 字段为 true，之后 Client 不会再发送任何请求或是回复响应了。
+     *
+     * 5 取消 CloseTimerTask 定时任务。
+     *
+     * 6调用底层 RemotingServer 对象的 close() 方法。以 NettyServer 为例，
+     * 其 close() 方法会先调用 AbstractPeer 的 close() 方法将自身的 closed 字段设置为 true；
+     * 然后调用 doClose() 方法关闭 boss Channel（即用来接收客户端连接的 Channel），
+     * 关闭 channels 集合中记录的 Channel（这些 Channel 是与 Client 之间的连接），
+     * 清理 channels 集合；最后，关闭 bossGroup 和 workerGroup 两个线程池。
+     */
     @Override
     public void close(final int timeout) {
-        startClose();
+        startClose();//// 将底层RemotingServer的closing字段设置为true，表示当前Server正在关闭，不再接收连接
         if (timeout > 0) {
             final long max = timeout;
             final long start = System.currentTimeMillis();
             if (getUrl().getParameter(Constants.CHANNEL_SEND_READONLYEVENT_KEY, true)) {
+                // 发送ReadOnly事件请求通知客户端
                 sendChannelReadOnlyEvent();
             }
             while (isRunning() && System.currentTimeMillis() - start < max) {
                 try {
-                    Thread.sleep(10);
+                    Thread.sleep(10);// 循环等待客户端断开连接
                 } catch (InterruptedException e) {
                     logger.warn(e.getMessage(), e);
                 }
             }
         }
-        doClose();
-        server.close(timeout);
+        doClose(); // 将自身closed字段设置为true，取消CloseTimerTask定时任务
+        server.close(timeout);// 关闭Transport层的Server
     }
 
     @Override

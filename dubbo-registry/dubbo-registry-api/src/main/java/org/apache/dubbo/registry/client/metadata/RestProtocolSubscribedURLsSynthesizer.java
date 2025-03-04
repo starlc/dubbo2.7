@@ -36,6 +36,7 @@ import static org.apache.dubbo.registry.Constants.REGISTER_KEY;
  * {@link SubscribedURLsSynthesizer} implementation for REST {@link Protocol protocol}
  *
  * @since 2.7.5
+ * 根据  subscribedURL 中的服务接口以及 ServiceInstance 的 host、port、Service Name 等合成完整的 URL
  */
 public class RestProtocolSubscribedURLsSynthesizer implements SubscribedURLsSynthesizer {
 
@@ -53,10 +54,13 @@ public class RestProtocolSubscribedURLsSynthesizer implements SubscribedURLsSynt
         return serviceInstances.stream().map(serviceInstance -> {
             URLBuilder urlBuilder = new URLBuilder()
                     .setProtocol(protocol)
+                    // 使用ServiceInstance的host、port
                     .setHost(serviceInstance.getHost())
                     .setPort(serviceInstance.getPort())
+                    // 设置业务接口
                     .setPath(subscribedURL.getServiceInterface())
                     .addParameter(SIDE_KEY, PROVIDER)
+                    // 设置Service Name
                     .addParameter(APPLICATION_KEY, serviceInstance.getServiceName())
                     .addParameter(REGISTER_KEY, TRUE.toString());
 

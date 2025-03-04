@@ -42,6 +42,10 @@ import static org.apache.dubbo.rpc.protocol.dubbo.Constants.LAZY_REQUEST_WITH_WA
 
 /**
  * dubbo protocol support class.
+ * LazyConnectExchangeClient 也是 ExchangeClient 的装饰器，
+ * 它会在原有 ExchangeClient 对象的基础上添加懒加载的功能。
+ * LazyConnectExchangeClient 在构造方法中不会创建底层持有连接的 Client，
+ * 而是在需要发送请求的时候，才会调用 initClient() 方法进行 Client 的创建
  */
 @SuppressWarnings("deprecation")
 final class LazyConnectExchangeClient implements ExchangeClient {
@@ -68,7 +72,7 @@ final class LazyConnectExchangeClient implements ExchangeClient {
     }
 
     private void initClient() throws RemotingException {
-        if (client != null) {
+        if (client != null) {// 底层Client已经初始化过了，这里不再初始化
             return;
         }
         if (logger.isInfoEnabled()) {
@@ -79,6 +83,7 @@ final class LazyConnectExchangeClient implements ExchangeClient {
             if (client != null) {
                 return;
             }
+            // 通过Exchangers门面类，创建ExchangeClient对象
             this.client = Exchangers.connect(url, requestHandler);
         } finally {
             connectLock.unlock();

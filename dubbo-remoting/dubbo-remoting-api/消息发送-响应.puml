@@ -1,0 +1,107 @@
+@startuml
+title Dubbo消费端调用链路(请求发送->响应接收)
+
+box "Consumer" #LightBlue
+participant "DubboInvoker" as invoker
+participant "HeaderExchangeClient" as exchangeClient
+participant "HeaderExchangeChannel" as exchangeChannel
+participant "NettyClient" as client
+participant "NettyChannel" as channel
+participant "NettyClientHandler" as clientHandler
+participant "DecodeHandler" as decoder
+participant "MultiMessageHandler" as multiHandler
+participant "HeartbeatHandler" as heartbeatHandler
+participant "AllChannelHandler" as allHandler
+participant "HeaderExchangeHandler" as headerHandler
+participant "DefaultFuture" as future
+end box
+
+box "Provider" #LightYellow
+participant "Provider" as provider
+end box
+
+== 发送请求阶段 ==
+-> invoker: invoke()
+activate invoker
+
+invoker -> exchangeClient: request()
+activate exchangeClient
+
+exchangeClient -> exchangeChannel: request()
+activate exchangeChannel
+note right: 生成请求ID,创建DefaultFuture
+
+exchangeChannel -> client: send()
+activate client
+
+client -> channel: send()
+activate channel
+
+channel -> provider: 网络传输
+deactivate channel
+
+== 等待响应阶段 ==
+invoker -> future: get(timeout)
+activate future
+note right: 阻塞等待响应
+
+== 接收响应阶段 ==
+provider --> clientHandler: 响应数据
+activate clientHandler
+
+clientHandler -> decoder: received()
+activate decoder
+
+decoder -> multiHandler: received()
+activate multiHandler
+
+multiHandler -> heartbeatHandler: received()
+activate heartbeatHandler
+
+heartbeatHandler -> allHandler: received()
+activate allHandler
+
+allHandler -> headerHandler: received()
+activate headerHandler
+
+headerHandler -> future: received()
+activate future
+note right: 设置响应结果,\n唤醒等待线程
+
+future --> invoker: return
+deactivate future
+
+-> invoker: 调用结束
+deactivate invoker
+
+note right of decoder
+  1. 解码响应消息
+  2. 转换为Response对象
+  3. 处理解码异常
+end note
+
+note right of multiHandler
+  1. 处理批量消息
+  2. 拆分多消息
+  3. 逐个处理
+end note
+
+note right of heartbeatHandler
+  1. 处理心跳消息
+  2. 维护连接状态
+  3. 自动回复心跳
+end note
+
+note right of allHandler
+  1. 所有消息都分发到线程池
+  2. 避免IO线程阻塞
+  3. 实现请求并发处理
+end note
+
+note right of headerHandler
+  1. 处理请求-响应语义
+  2. 关联请求与响应
+  3. 处理超时情况
+end note
+
+@enduml

@@ -58,6 +58,12 @@ import static org.apache.dubbo.rpc.Constants.ACCESS_LOG_KEY;
  *    &lt;appender-ref ref="foo" /&gt;
  * &lt;/logger&gt;
  * </pre></code>
+ *
+ * AccessLogFilter 主要用于记录日志，它的主要功能是将 Provider 或者 Consumer 的日志信息写入文件中。
+ * AccessLogFilter 会先将日志消息放入内存日志集合中缓存，当缓存大小超过一定阈值之后，会触发日志的写入。
+ * 若长时间未触发日志文件写入，则由定时任务定时写入。
+ *
+ * 在 AccessLogFilter 的构造方法中，会启动一个定时任务，定时调用上面介绍的 writeLogSetToFile() 方法，定时写入日志
  */
 @Activate(group = PROVIDER, value = ACCESS_LOG_KEY)
 public class AccessLogFilter implements Filter {
@@ -79,6 +85,9 @@ public class AccessLogFilter implements Filter {
 
     private static final Map<String, Queue<AccessLogData>> LOG_ENTRIES = new ConcurrentHashMap<>();
 
+    /**
+     * 启动一个线程池
+     */
     private static final ScheduledExecutorService LOG_SCHEDULED = Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("Dubbo-Access-Log", true));
 
     /**
@@ -86,6 +95,7 @@ public class AccessLogFilter implements Filter {
      * defined in url <b>accesslog</b>
      */
     public AccessLogFilter() {
+        // 启动一个定时任务，定期执行writeLogSetToFile()方法，完成日志写入 5000ms
         LOG_SCHEDULED.scheduleWithFixedDelay(this::writeLogToFile, LOG_OUTPUT_INTERVAL, LOG_OUTPUT_INTERVAL, TimeUnit.MILLISECONDS);
     }
 
@@ -101,7 +111,8 @@ public class AccessLogFilter implements Filter {
     public Result invoke(Invoker<?> invoker, Invocation inv) throws RpcException {
         try {
             String accessLogKey = invoker.getUrl().getParameter(ACCESS_LOG_KEY);
-            if (ConfigUtils.isNotEmpty(accessLogKey)) {
+            if (ConfigUtils.isNotEmpty(accessLogKey)) {// 获取ACCESS_LOG_KEY
+                // 构造AccessLogData对象，其中记录了日志信息，例如，调用的服务名称、方法名称、version等
                 AccessLogData logData = AccessLogData.newLogData(); 
                 logData.buildAccessLogData(invoker, inv);
                 log(accessLogKey, logData);
@@ -109,40 +120,54 @@ public class AccessLogFilter implements Filter {
         } catch (Throwable t) {
             logger.warn("Exception in AccessLogFilter of service(" + invoker + " -> " + inv + ")", t);
         }
+        // 调用下一个Invoker
         return invoker.invoke(inv);
     }
 
     private void log(String accessLog, AccessLogData accessLogData) {
+        // 根据ACCESS_LOG_KEY获取对应的缓存集合
         Queue<AccessLogData> logQueue = LOG_ENTRIES.computeIfAbsent(accessLog, k -> new ConcurrentLinkedQueue<>());
 
-        if (logQueue.size() < LOG_MAX_BUFFER) {
+        if (logQueue.size() < LOG_MAX_BUFFER) {// 缓存大小未超过阈值
             logQueue.add(accessLogData);
-        } else {
+        } else {// 缓存大小超过阈值，触发缓存数据写入文件
             logger.warn("AccessLog buffer is full. Do a force writing to file to clear buffer.");
             //just write current logQueue to file.
             writeLogQueueToFile(accessLog, logQueue);
             //after force writing, add accessLogData to current logQueue
+            // 完成文件写入之后，再次写入缓存
             logQueue.add(accessLogData);
         }
     }
 
+    /**
+     * 在 writeLogQueueToFile() 方法中，会按照 ACCESS_LOG_KEY 的值将日志信息写入不同的日志文件中：
+     *
+     * 如果 ACCESS_LOG_KEY 配置的值为 true 或 default，会使用 Dubbo 默认提供的统一日志框架，输出到日志文件中；
+     *
+     * 如果 ACCESS_LOG_KEY 配置的值不为 true 或 default，则 ACCESS_LOG_KEY 配置值会被当作 access log 文件的名称，
+     * AccessLogFilter 会创建相应的目录和文件，并完成日志的输出。
+     */
     private void writeLogQueueToFile(String accessLog, Queue<AccessLogData> logQueue) {
         try {
             if (ConfigUtils.isDefault(accessLog)) {
+                // ACCESS_LOG_KEY配置值为true或是default
                 processWithServiceLogger(logQueue);
-            } else {
+            } else {// ACCESS_LOG_KEY配置既不是true也不是default的时候
                 File file = new File(accessLog);
-                createIfLogDirAbsent(file);
+                createIfLogDirAbsent(file);// 创建目录
                 if (logger.isDebugEnabled()) {
                     logger.debug("Append log to " + accessLog);
                 }
-                renameFile(file);
+                renameFile(file);// 创建日志文件，这里会以日期为后缀，滚动创建
+                // 遍历logSet(logQueue)集合，将日志逐条写入文件
                 processWithAccessKeyLogger(logQueue, file);
             }
         } catch (Exception e) {
             logger.error(e.getMessage(), e);
         }
     }
+
 
     private void writeLogToFile() {
         if (!LOG_ENTRIES.isEmpty()) {
@@ -155,6 +180,7 @@ public class AccessLogFilter implements Filter {
     }
 
     private void processWithAccessKeyLogger(Queue<AccessLogData> logQueue, File file) throws IOException {
+        // 创建FileWriter，写入指定的日志文件
         FileWriter writer = new FileWriter(file, true);
         try  {
             while (!logQueue.isEmpty()) {
@@ -169,7 +195,8 @@ public class AccessLogFilter implements Filter {
 
     private void processWithServiceLogger(Queue<AccessLogData> logQueue) {
         while (!logQueue.isEmpty()) {
-            AccessLogData logData = logQueue.poll();
+            AccessLogData logData = logQueue.poll();// 遍历logQueue集合
+            // 通过LoggerFactory获取Logger对象，并写入日志
             LoggerFactory.getLogger(LOG_KEY + "." + logData.getServiceName()).info(logData.getLogMessage());
         }
     }

@@ -33,6 +33,13 @@ import static org.apache.dubbo.rpc.Constants.EXECUTES_KEY;
  * The maximum parallel execution request count per method per service for the provider.If the max configured
  * <b>executes</b> is set to 10 and if invoke request where it is already 10 then it will throws exception. It
  * continue the same behaviour un till it is <10.
+ *
+ * ExecuteLimitFilter 是 Dubbo 在 Provider 端限流的实现，与 Consumer 端的限流实现 ActiveLimitFilter 相对应。
+ * ExecuteLimitFilter 的核心实现与 ActiveLimitFilter类似，也是依赖 RpcStatus 的 beginCount() 方法和
+ * endCount() 方法来实现 RpcStatus.active 字段的增减
+ *
+ * ExecuteLimitFilter 同时还实现了 Filter 内部的 Listener 接口，在 onResponse() 方法和 onError() 方法中会调用
+ * RpcStatus.endCount() 方法，减小 active 的值，同时完成对一次调用的统计
  */
 @Activate(group = CommonConstants.PROVIDER, value = EXECUTES_KEY)
 public class ExecuteLimitFilter implements Filter, Filter.Listener {
@@ -44,6 +51,7 @@ public class ExecuteLimitFilter implements Filter, Filter.Listener {
         URL url = invoker.getUrl();
         String methodName = invocation.getMethodName();
         int max = url.getMethodParameter(methodName, EXECUTES_KEY, 0);
+        // 尝试增加active的值，当并发度达到executes配置指定的阈值，则直接抛出异常
         if (!RpcStatus.beginCount(url, methodName, max)) {
             throw new RpcException(RpcException.LIMIT_EXCEEDED_EXCEPTION,
                     "Failed to invoke method " + invocation.getMethodName() + " in provider " +

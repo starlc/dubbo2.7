@@ -51,17 +51,27 @@ import static org.apache.dubbo.rpc.Constants.SERIALIZATION_ID_KEY;
 
 /**
  * This Invoker works on Consumer side.
+ * 继承了 Invoker 接口
  */
 public abstract class AbstractInvoker<T> implements Invoker<T> {
 
     protected final Logger logger = LoggerFactory.getLogger(getClass());
 
+    //该 Invoker 对象封装的业务接口类型，例如 Demo 示例中的 DemoService 接口。
     private final Class<T> type;
 
-    private final URL url;
+    private final URL url;//与当前 Invoker 关联的 URL 对象，其中包含了全部的配置信息。
 
+    /**
+     * 当前 Invoker 关联的一些附加信息，这些附加信息可以来自关联的 URL。在 AbstractInvoker 的构造函数的某个重载中，
+     * 会调用 convertAttachment() 方法，其中就会从关联的 URL 对象获取指定的 KV 值记录到 attachment 集合中。
+     */
     private final Map<String, Object> attachment;
 
+    /**
+     * 这两个字段用来控制当前 Invoker 的状态。available 默认值为 true，destroyed 默认值为 false。
+     * 在 destroy() 方法中会将 available 设置为 false，将 destroyed 字段设置为 true。
+     */
     private volatile boolean available = true;
 
     private AtomicBoolean destroyed = new AtomicBoolean(false);
@@ -136,6 +146,15 @@ public abstract class AbstractInvoker<T> implements Invoker<T> {
         return getInterface() + " -> " + (getUrl() == null ? "" : getUrl().toString());
     }
 
+    /**
+     * 在 AbstractInvoker 中实现了 Invoker 接口中的 invoke() 方法，这里有点模板方法模式的感觉，
+     * 其中先对 URL 中的配置信息以及 RpcContext 中携带的附加信息进行处理，添加到 Invocation 中作为附加信息，
+     * 然后调用 doInvoke() 方法发起远程调用（该方法由 AbstractInvoker 的子类具体实现），
+     * 最后得到 AsyncRpcResult 对象返回。
+     * @param inv
+     * @return
+     * @throws RpcException
+     */
     @Override
     public Result invoke(Invocation inv) throws RpcException {
         // if invoker is destroyed due to address refresh from registry, let's allow the current invoke to proceed
@@ -143,12 +162,15 @@ public abstract class AbstractInvoker<T> implements Invoker<T> {
             logger.warn("Invoker for service " + this + " on consumer " + NetUtils.getLocalHost() + " is destroyed, "
                     + ", dubbo version is " + Version.getVersion() + ", this invoker should not be used any longer");
         }
+        // 首先将传入的Invocation转换为RpcInvocation
         RpcInvocation invocation = (RpcInvocation) inv;
         invocation.setInvoker(this);
+        // 将前文介绍的attachment集合添加为Invocation的附加信息
         if (CollectionUtils.isNotEmptyMap(attachment)) {
             invocation.addObjectAttachmentsIfAbsent(attachment);
         }
 
+        // 将RpcContext的附加信息添加为Invocation的附加信息
         Map<String, Object> contextAttachments = RpcContext.getContext().getObjectAttachments();
         if (CollectionUtils.isNotEmptyMap(contextAttachments)) {
             /**
@@ -160,7 +182,9 @@ public abstract class AbstractInvoker<T> implements Invoker<T> {
             invocation.addObjectAttachments(contextAttachments);
         }
 
+        // 设置此次调用的模式，异步还是同步
         invocation.setInvokeMode(RpcUtils.getInvokeMode(url, invocation));
+        // 如果是异步调用，给这次调用添加一个唯一ID
         RpcUtils.attachInvocationIdIfAsync(getUrl(), invocation);
 
         Byte serializationId = CodecSupport.getIDByName(getUrl().getParameter(SERIALIZATION_KEY, DEFAULT_REMOTING_SERIALIZATION));
@@ -169,9 +193,9 @@ public abstract class AbstractInvoker<T> implements Invoker<T> {
         }
 
         AsyncRpcResult asyncResult;
-        try {
+        try {// 调用子类实现的doInvoke()方法
             asyncResult = (AsyncRpcResult) doInvoke(invocation);
-        } catch (InvocationTargetException e) { // biz exception
+        } catch (InvocationTargetException e) { // biz exception// 省略异常处理的逻辑
             Throwable te = e.getTargetException();
             if (te == null) {
                 asyncResult = AsyncRpcResult.newDefaultAsyncResult(null, e, invocation);
@@ -181,7 +205,7 @@ public abstract class AbstractInvoker<T> implements Invoker<T> {
                 }
                 asyncResult = AsyncRpcResult.newDefaultAsyncResult(null, te, invocation);
             }
-        } catch (RpcException e) {
+        } catch (RpcException e) {// 省略异常处理的逻辑
             if (e.isBiz()) {
                 asyncResult = AsyncRpcResult.newDefaultAsyncResult(null, e, invocation);
             } else {
@@ -190,6 +214,7 @@ public abstract class AbstractInvoker<T> implements Invoker<T> {
         } catch (Throwable e) {
             asyncResult = AsyncRpcResult.newDefaultAsyncResult(null, e, invocation);
         }
+        //这里拿到的其实就是 AsyncRpcResult 中 responseFuture，即前面介绍的 DefaultFuture
         RpcContext.getContext().setFuture(new FutureAdapter(asyncResult.getResponseFuture()));
         return asyncResult;
     }

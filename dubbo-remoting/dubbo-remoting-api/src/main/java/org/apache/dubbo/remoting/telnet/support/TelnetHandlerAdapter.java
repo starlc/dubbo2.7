@@ -28,6 +28,9 @@ import org.apache.dubbo.remoting.transport.ChannelHandlerAdapter;
 import static org.apache.dubbo.common.constants.CommonConstants.COMMA_SPLIT_PATTERN;
 import static org.apache.dubbo.remoting.Constants.TELNET;
 
+/**
+ * 至于Dubbo 对 Telnet 的支持，我们会在后面的课时中单独介绍，这里就先不展开分析了。
+ */
 public class TelnetHandlerAdapter extends ChannelHandlerAdapter implements TelnetHandler {
 
     private final ExtensionLoader<TelnetHandler> extensionLoader = ExtensionLoader.getExtensionLoader(TelnetHandler.class);

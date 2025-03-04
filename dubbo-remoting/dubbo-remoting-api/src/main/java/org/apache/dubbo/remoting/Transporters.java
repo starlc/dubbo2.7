@@ -60,6 +60,13 @@ public class Transporters {
         return connect(URL.valueOf(url), handler);
     }
 
+    /**
+     * Transporters.connect() 方法和 bind() 方法中，会将多个 ChannelHandler 封装成一个 ChannelHandlerDispatcher 对象。
+     * @param url
+     * @param handlers
+     * @return
+     * @throws RemotingException
+     */
     public static Client connect(URL url, ChannelHandler... handlers) throws RemotingException {
         if (url == null) {
             throw new IllegalArgumentException("url == null");
@@ -76,6 +83,7 @@ public class Transporters {
     }
 
     public static Transporter getTransporter() {
+        // 自动生成Transporter适配器并加载
         return ExtensionLoader.getExtensionLoader(Transporter.class).getAdaptiveExtension();
     }
 

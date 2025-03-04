@@ -30,26 +30,39 @@ import java.util.List;
 
 /**
  * ListenerInvoker
+ *
+ * ListenerInvokerWrapper 是 Invoker 的装饰器，
+ * 其构造方法参数列表中除了被修饰的 Invoker 外，还有 InvokerListener 列表，
+ * 在构造方法内部会遍历整个 InvokerListener 列表，
+ * 并调用每个 InvokerListener 的 referred() 方法，通知它们 Invoker 被引用的事件
+ *
+ *
+ * 在 ListenerInvokerWrapper.destroy() 方法中，
+ * 首先会调用被修饰 Invoker 对象的 destroy() 方法，
+ * 之后循环调用全部 InvokerListener 的 destroyed() 方法，
+ * 通知它们该 Invoker 被销毁的事件
  */
 public class ListenerInvokerWrapper<T> implements Invoker<T> {
 
     private static final Logger logger = LoggerFactory.getLogger(ListenerInvokerWrapper.class);
 
+    // 底层被修饰的Invoker对象
     private final Invoker<T> invoker;
 
+    // 监听器集合
     private final List<InvokerListener> listeners;
 
     public ListenerInvokerWrapper(Invoker<T> invoker, List<InvokerListener> listeners) {
         if (invoker == null) {
             throw new IllegalArgumentException("invoker == null");
         }
-        this.invoker = invoker;
-        this.listeners = listeners;
+        this.invoker = invoker;// 底层被修饰的Invoker对象
+        this.listeners = listeners;// 监听器集合
         if (CollectionUtils.isNotEmpty(listeners)) {
             for (InvokerListener listener : listeners) {
                 if (listener != null) {
                     try {
-                        listener.referred(invoker);
+                        listener.referred(invoker);// 在服务引用过程中触发全部InvokerListener监听器
                     } catch (Throwable t) {
                         logger.error(t.getMessage(), t);
                     }
@@ -83,9 +96,13 @@ public class ListenerInvokerWrapper<T> implements Invoker<T> {
         return getInterface() + " -> " + (getUrl() == null ? " " : getUrl().toString());
     }
 
+    /**
+     * 首先会调用被修饰 Invoker 对象的 destroy() 方法，之后循环调用全部 InvokerListener 的 destroyed() 方法，通知它们该 Invoker 被销毁的事件
+     */
     @Override
     public void destroy() {
         try {
+            //被修饰 Invoker 对象的 destroy() 方法
             invoker.destroy();
         } finally {
             if (CollectionUtils.isNotEmpty(listeners)) {

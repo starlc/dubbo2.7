@@ -27,6 +27,9 @@ import java.util.concurrent.ConcurrentMap;
  *
  * @see ServiceDiscoveryFactory
  * @since 2.7.5
+ *
+ * 维护了一个 ConcurrentMap<String, ServiceDiscovery> 类型的集合（discoveries 字段）来缓存 ServiceDiscovery 对象，
+ * 并提供了一个 createDiscovery() 抽象方法来创建 ServiceDiscovery 实例。
  */
 public abstract class AbstractServiceDiscoveryFactory implements ServiceDiscoveryFactory {
 

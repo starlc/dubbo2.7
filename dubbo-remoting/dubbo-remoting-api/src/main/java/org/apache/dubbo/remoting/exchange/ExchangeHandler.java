@@ -24,6 +24,7 @@ import java.util.concurrent.CompletableFuture;
 
 /**
  * ExchangeHandler. (API, Prototype, ThreadSafe)
+ * 在channelHandler之上 添加 回应上层的能力
  */
 public interface ExchangeHandler extends ChannelHandler, TelnetHandler {
 

@@ -29,6 +29,20 @@ import static org.apache.dubbo.rpc.Constants.$ECHO;
 
 /**
  * Dubbo provided default Echo echo service, which is available for all dubbo provider service interface.
+ * 判断方法名是否带$echo 且参数为1个 如果是 立即返回一个AsyncRpcResult
+ *
+ * EchoFilter 用于支持 回声测试（Echo Test），即通过发送一个简单的请求来检测服务是否可用。
+ * 回声测试：客户端发送一个测试请求（通常是 $echo 方法），服务端直接返回相同的请求数据。
+ *
+ * 用途：
+ * 检测服务提供者是否在线。
+ * 验证网络连接是否正常。
+ * 用于健康检查或监控。
+ *
+ * (2) 实现机制
+ * 拦截请求：当客户端调用 $echo 方法时，EchoFilter 会拦截该请求。
+ *
+ * 直接返回：服务端不执行实际业务逻辑，而是直接将请求参数返回给客户端。
  */
 @Activate(group = CommonConstants.PROVIDER, order = -110000)
 public class EchoFilter implements Filter {

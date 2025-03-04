@@ -28,6 +28,13 @@ public abstract class AbstractServiceDiscovery implements ServiceDiscovery {
         return serviceInstance;
     }
 
+    /**
+     * 在 ZookeeperServiceDiscovery 中的方法基本都是调用 Curator ServiceDiscovery 对象的相应方法实现，
+     * 例如，register()、update() 、unregister() 方法都会调用 Curator ServiceDiscovery
+     * 对象的相应方法完成 ServiceInstance 的添加、更新和删除。这里我们以 register() 方法为例
+     * @param serviceInstance an instance of {@link ServiceInstance} to be registered
+     * @throws RuntimeException
+     */
     @Override
     public final void register(ServiceInstance serviceInstance) throws RuntimeException {
         doRegister(serviceInstance);

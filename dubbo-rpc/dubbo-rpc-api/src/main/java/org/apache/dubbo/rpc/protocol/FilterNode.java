@@ -26,7 +26,8 @@ import org.apache.dubbo.rpc.RpcException;
 
 /**
  * @see org.apache.dubbo.rpc.protocol.ProtocolFilterWrapper
- *
+ * 将原本在org.apache.dubbo.rpc.protocol.ProtocolFilterWrapper#buildInvokerChain(org.apache.dubbo.rpc.Invoker, java.lang.String, java.lang.String)
+ * 中的逻辑封装成了一个类，主要提供invoke实现
  */
 class FilterNode<T> implements Invoker<T>{
     private final Invoker<T> invoker;
@@ -58,8 +59,12 @@ class FilterNode<T> implements Invoker<T>{
     public Result invoke(Invocation invocation) throws RpcException {
         Result asyncResult;
         try {
+            // 调用 Filter 的 invoke() 方法执行 Filter 的逻辑，
+            // 然后由 Filter 内部的逻辑决定是否将调用传递到下一个 Filter 执行
             asyncResult = filter.invoke(next, invocation);
         } catch (Exception e) {
+
+            // 当 invoke() 方法执行出现异常时，会调用该 Listener 的 onError() 方法进行通知。
             if (filter instanceof ListenableFilter) {
                 ListenableFilter listenableFilter = ((ListenableFilter) filter);
                 try {
@@ -78,7 +83,8 @@ class FilterNode<T> implements Invoker<T>{
         } finally {
 
         }
-        return asyncResult.whenCompleteWithContext((r, t) -> {
+        return asyncResult.whenCompleteWithContext((r, t) -> {// 省略监听器的处理逻辑
+            // 当 invoke() 方法执行正常结束时，会调用该 Listener 的 onResponse() 方法进行通知；
             if (filter instanceof ListenableFilter) {
                 ListenableFilter listenableFilter = ((ListenableFilter) filter);
                 Filter.Listener listener = listenableFilter.listener(invocation);

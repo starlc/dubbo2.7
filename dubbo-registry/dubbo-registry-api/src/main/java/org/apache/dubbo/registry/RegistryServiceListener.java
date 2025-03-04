@@ -20,6 +20,9 @@ package org.apache.dubbo.registry;
 import org.apache.dubbo.common.URL;
 import org.apache.dubbo.common.extension.SPI;
 
+/**
+ * SPI接口，添加回调事件
+ */
 @SPI
 public interface RegistryServiceListener {
     default void onRegister(URL url) {

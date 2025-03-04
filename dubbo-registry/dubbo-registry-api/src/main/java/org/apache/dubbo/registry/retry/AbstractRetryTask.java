@@ -35,6 +35,9 @@ import static org.apache.dubbo.registry.Constants.REGISTRY_RETRY_TIMES_KEY;
 
 /**
  * AbstractRetryTask
+ * 在 AbstractRetryTask 中维护了当前任务关联的 URL、当前重试的次数等信息，
+ * 在其 run() 方法中，会根据重试 URL 中指定的重试次数（retry.times 参数，默认值为 3）、
+ * 任务是否被取消以及时间轮的状态，决定此次任务的 doRetry() 方法是否正常执行。
  */
 public abstract class AbstractRetryTask implements TimerTask {
 
@@ -94,24 +97,27 @@ public abstract class AbstractRetryTask implements TimerTask {
     }
 
     protected void reput(Timeout timeout, long tick) {
-        if (timeout == null) {
+        if (timeout == null) {// 边界检查
             throw new IllegalArgumentException();
         }
 
-        Timer timer = timeout.timer();
+        Timer timer = timeout.timer(); // 检查定时任务
         if (timer.isStop() || timeout.isCancelled() || isCancel()) {
             return;
         }
-        times++;
+        times++;// 递增times
+        // 添加定时任务
         timer.newTimeout(timeout.task(), tick, TimeUnit.MILLISECONDS);
     }
 
     @Override
     public void run(Timeout timeout) throws Exception {
+        //// 检测定时任务状态和时间轮状态
         if (timeout.isCancelled() || timeout.timer().isStop() || isCancel()) {
             // other thread cancel this timeout or stop the timer.
             return;
         }
+        //超过重试次数，直接return
         if (times > retryTimes) {
             // reach the most times of retry.
             logger.warn("Final failed to execute task " + taskName + ", url: " + url + ", retry " + retryTimes + " times.");
@@ -121,13 +127,21 @@ public abstract class AbstractRetryTask implements TimerTask {
             logger.info(taskName + " : " + url);
         }
         try {
+            // 执行重试
             doRetry(url, registry, timeout);
         } catch (Throwable t) { // Ignore all the exceptions and wait for the next retry
             logger.warn("Failed to execute task " + taskName + ", url: " + url + ", waiting for again, cause:" + t.getMessage(), t);
             // reput this task when catch exception.
+            // 重新添加定时任务，等待重试
             reput(timeout, retryPeriod);
         }
     }
 
+    /**
+     * AbstractRetryTask 将 doRetry() 方法作为抽象方法，留给子类实现具体的重试逻辑，这也是模板方法的使用。
+     * @param url
+     * @param registry
+     * @param timeout
+     */
     protected abstract void doRetry(URL url, FailbackRegistry registry, Timeout timeout);
 }

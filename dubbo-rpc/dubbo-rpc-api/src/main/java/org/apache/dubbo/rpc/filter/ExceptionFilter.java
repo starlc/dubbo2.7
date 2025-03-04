@@ -42,6 +42,23 @@ import java.lang.reflect.Method;
  * exception not declared on the interface</li>
  * <li>Wrap the exception not introduced in API package into RuntimeException. Framework will serialize the outer exception but stringnize its cause in order to avoid of possible serialization problem on client side</li>
  * </ol>
+ *
+ * (1) 作用
+ * ExceptionFilter 用于统一处理服务调用过程中抛出的异常，确保异常信息能够正确传递到客户端。
+ * 异常处理：捕获服务提供者抛出的异常，并根据异常类型决定是否传递给客户端。
+ *
+ * 用途：
+ * 避免敏感异常信息泄露（如数据库连接失败）。
+ * 统一异常处理逻辑，提升系统健壮性。
+ *
+ * (2) 实现机制
+ * 捕获异常：在服务提供者执行过程中捕获所有异常。
+ *
+ * 异常分类：
+ * 业务异常（如 RuntimeException）：直接传递给客户端。
+ * 非业务异常（如 IOException、SQLException）：转换为 RuntimeException 或自定义异常，避免暴露敏感信息。
+ *
+ * 日志记录：记录异常日志，便于排查问题。
  */
 @Activate(group = CommonConstants.PROVIDER)
 public class ExceptionFilter implements Filter, Filter.Listener {

@@ -33,6 +33,19 @@ import static org.apache.dubbo.common.constants.CommonConstants.TIME_COUNTDOWN_K
 
 /**
  * Log any invocation timeout, but don't stop server from running
+ * 在前文介绍 ConsumerContextFilter 的时候可以看到，如果通过 TIME_COUNTDOWN_KEY
+ * 在 RpcContext 中配置了 TimeCountDown，就会对 TimeoutCountDown 进行检查，
+ * 判定此次请求是否超时。然后，在 DubboInvoker 的 doInvoker() 方法实现中可以看到，
+ * 在发起请求之前会调用 calculateTimeout() 方法确定该请求还有多久过期
+ *
+ *
+ * 当请求到达 Provider 时，ContextFilter 会根据 Invocation 中的 attachment
+ * 恢复 RpcContext 的attachment，其中就包含 TIMEOUT_ATTACHENT_KEY（对应的 Value 会恢复成 TimeoutCountDown 对象）。
+ *
+ * TimeoutFilter 是 Provider 端另一个涉及超时时间的 Filter 实现，其 invoke() 方法实现比较简单，
+ * 直接将请求转发给后续 Filter 处理。在 TimeoutFilter 对 onResponse() 方法的实现中，
+ * 会从 RpcContext 中读取上述 TimeoutCountDown 对象，并检查此次请求是否超时。
+ * 如果请求已经超时，则会将 AppResponse 中的结果清空，同时打印一条警告日志
  */
 @Activate(group = CommonConstants.PROVIDER)
 public class TimeoutFilter implements Filter, Filter.Listener {
@@ -49,7 +62,8 @@ public class TimeoutFilter implements Filter, Filter.Listener {
         Object obj = RpcContext.getContext().get(TIME_COUNTDOWN_KEY);
         if (obj != null) {
             TimeoutCountDown countDown = (TimeoutCountDown) obj;
-            if (countDown.isExpired()) {
+            if (countDown.isExpired()) {// 检查结果是否超时
+                // 清理结果信息
                 ((AppResponse) appResponse).clear(); // clear response in case of timeout.
                 if (logger.isWarnEnabled()) {
                     logger.warn("invoke timed out. method: " + invocation.getMethodName() +

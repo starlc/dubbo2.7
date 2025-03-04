@@ -20,6 +20,7 @@ import org.apache.dubbo.common.Node;
 
 /**
  * Invoker. (API/SPI, Prototype, ThreadSafe)
+ * Invoker 渗透在整个 Dubbo 代码实现里，Dubbo 中的很多设计思路都会向 Invoker 这个概念靠拢
  *
  * @see org.apache.dubbo.rpc.Protocol#refer(Class, org.apache.dubbo.common.URL)
  * @see org.apache.dubbo.rpc.InvokerListener
@@ -29,13 +30,14 @@ public interface Invoker<T> extends Node {
 
     /**
      * get service interface.
-     *
+     * 服务接口
      * @return service interface.
      */
     Class<T> getInterface();
 
     /**
      * invoke.
+     * 进行一次调用，也有人称之为一次"会话"，你可以理解为一次调用
      *
      * @param invocation
      * @return result

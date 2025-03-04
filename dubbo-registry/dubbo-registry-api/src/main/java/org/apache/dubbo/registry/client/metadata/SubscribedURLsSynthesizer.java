@@ -28,7 +28,9 @@ import java.util.List;
 
 /**
  * The interface to synthesize the subscribed {@link URL URLs}
- *
+ * 合成订阅
+ * 目前 Dubbo 只提供了 rest 协议的实现—— RestProtocolSubscribedURLsSynthesizer，其中会根据
+ * subscribedURL 中的服务接口以及 ServiceInstance 的 host、port、Service Name 等合成完整的 URL
  * @since 2.7.5
  */
 @SPI
@@ -36,6 +38,7 @@ public interface SubscribedURLsSynthesizer extends Prioritized {
 
     /**
      * Supports the synthesis of the subscribed {@link URL URLs} or not
+     * // 是否支持该类型的URL
      *
      * @param subscribedURL the original subscribed {@link URL} from the execution of`
      *                      {@link Registry#subscribe(URL, NotifyListener)} method
@@ -45,6 +48,7 @@ public interface SubscribedURLsSynthesizer extends Prioritized {
 
     /**
      * synthesize the subscribed {@link URL URLs}
+     * // 根据subscribedURL以及ServiceInstance的信息，合成完整subscribedURL集合
      *
      * @param subscribedURL    the original subscribed {@link URL} from the execution of`
      *                         {@link Registry#subscribe(URL, NotifyListener)} method

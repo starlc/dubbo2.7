@@ -49,6 +49,25 @@ import static org.apache.dubbo.rpc.protocol.dubbo.Constants.DEFAULT_DECODE_IN_IO
 
 /**
  * Dubbo codec.
+ * 让我解释一下编解码(Codec)和序列化(Serialization)的关系：
+ *
+ * 1. 编解码(Codec)的职责 ：
+ * - 处理网络传输层面的数据转换
+ * - 将字节流转换为协议消息结构
+ * - 处理协议头、消息长度等底层细节
+ * - 确保消息的完整性和边界
+ * 2. 序列化(Serialization)的职责 ：
+ * - 专门处理 Java 对象与二进制数据的转换
+ * - 是编解码过程中的一个子步骤
+ * - 只关注业务对象的转换
+ * - 不处理协议相关的内容
+ * 4. 处理流程 ：
+ * - 编码：Java对象 -> 序列化 -> 协议编码 -> 字节流
+ * - 解码：字节流 -> 协议解码 -> 反序列化 -> Java对象
+ * 5. 区别总结 ：
+ * - 编解码：关注协议层面，处理消息的传输格式
+ * - 序列化：关注对象层面，处理Java对象的转换
+ * - 两者互补，共同完成数据传输
  */
 public class DubboCodec extends ExchangeCodec {
 
@@ -64,24 +83,40 @@ public class DubboCodec extends ExchangeCodec {
     public static final Class<?>[] EMPTY_CLASS_ARRAY = new Class<?>[0];
     private static final Logger log = LoggerFactory.getLogger(DubboCodec.class);
 
+    /**
+     * 这个解码过程中有个细节，在 DubboCodec.decodeBody() 方法中有如下代码片段，
+     * 其中会根据 DECODE_IN_IO_THREAD_KEY 这个参数决定是否在 DubboCodec
+     * 中进行解码（DubboCodec 是在 IO 线程中调用的）。
+     *
+     * - 区分请求和响应消息
+     * - 区分普通消息和事件消息
+     * - 支持IO线程和业务线程两种解码方式
+     * - 完整的异常处理机制
+     * @param channel
+     * @param is
+     * @param header
+     * @return
+     * @throws IOException
+     */
     @Override
     protected Object decodeBody(Channel channel, InputStream is, byte[] header) throws IOException {
+        // 从header[2]获取标志位  通过掩码获取序列化类型
         byte flag = header[2], proto = (byte) (flag & SERIALIZATION_MASK);
-        // get request id.
+        // get request id. 从header[4]开始读取请求ID
         long id = Bytes.bytes2long(header, 4);
         if ((flag & FLAG_REQUEST) == 0) {
             // decode response.
             Response res = new Response(id);
-            if ((flag & FLAG_EVENT) != 0) {
+            if ((flag & FLAG_EVENT) != 0) { //设置是否为事件消息
                 res.setEvent(true);
             }
-            // get status.
+            // get status.设置响应状态
             byte status = header[3];
             res.setStatus(status);
             try {
                 if (status == Response.OK) {
                     Object data;
-                    if (res.isEvent()) {
+                    if (res.isEvent()) {// 解码事件消息
                         byte[] eventPayload = CodecSupport.getPayload(is);
                         if (CodecSupport.isHeartBeat(eventPayload, proto)) {
                             // heart beat response data is always null;
@@ -95,8 +130,8 @@ public class DubboCodec extends ExchangeCodec {
                         if (channel.getUrl().getParameter(DECODE_IN_IO_THREAD_KEY, DEFAULT_DECODE_IN_IO_THREAD)) {
                             result = new DecodeableRpcResult(channel, res, is,
                                     (Invocation) getRequestData(channel, res, id), proto);
-                            result.decode();
-                        } else {
+                            result.decode();// IO线程解码
+                        } else {// 业务线程解码
                             result = new DecodeableRpcResult(channel, res,
                                     new UnsafeByteArrayInputStream(readMessageData(is)),
                                     (Invocation) getRequestData(channel, res, id), proto);
@@ -117,7 +152,7 @@ public class DubboCodec extends ExchangeCodec {
             }
             return res;
         } else {
-            // decode request.
+            // decode request.请求消息解码
             Request req = new Request(id);
             req.setVersion(Version.getProtocolVersion());
             req.setTwoWay((flag & FLAG_TWOWAY) != 0);
@@ -126,7 +161,7 @@ public class DubboCodec extends ExchangeCodec {
             }
             try {
                 Object data;
-                if (req.isEvent()) {
+                if (req.isEvent()) { // 解码事件消息
                     byte[] eventPayload = CodecSupport.getPayload(is);
                     if (CodecSupport.isHeartBeat(eventPayload, proto)) {
                         // heart beat response data is always null;
@@ -136,11 +171,14 @@ public class DubboCodec extends ExchangeCodec {
                         data = decodeEventData(channel, in, eventPayload);
                     }
                 } else {
+                    // 仅读取数据，后续在业务线程解码
                     DecodeableRpcInvocation inv;
+                    // 这里会检查DECODE_IN_IO_THREAD_KEY参数，如果配置了 直接在这里进行解码操作
+                    //根据 DECODE_IN_IO_THREAD_KEY 这个参数决定是否在 DubboCodec 中进行解码（DubboCodec 是在 IO 线程中调用的）。
                     if (channel.getUrl().getParameter(DECODE_IN_IO_THREAD_KEY, DEFAULT_DECODE_IN_IO_THREAD)) {
                         inv = new DecodeableRpcInvocation(channel, req, is, proto);
-                        inv.decode();
-                    } else {
+                        inv.decode();// 直接调用decode()方法在当前IO线程中解码
+                    } else {// 这里只是读取数据，不会调用decode()方法在当前IO线程中进行解码
                         inv = new DecodeableRpcInvocation(channel, req,
                                 new UnsafeByteArrayInputStream(readMessageData(is)), proto);
                     }
@@ -153,7 +191,7 @@ public class DubboCodec extends ExchangeCodec {
                 }
                 // bad request
                 req.setBroken(true);
-                req.setData(t);
+                req.setData(t);// 设置到Request请求的data字段
             }
 
             return req;
@@ -179,27 +217,41 @@ public class DubboCodec extends ExchangeCodec {
         encodeResponseData(channel, out, data, DUBBO_VERSION);
     }
 
+    /**
+     * DubboCodec 中就覆盖了 encodeRequestData() 方法，按照 Dubbo 协议的格式编码 Request 请求体
+     * @param channel
+     * @param out
+     * @param data
+     * @param version
+     * @throws IOException
+     */
     @Override
     protected void encodeRequestData(Channel channel, ObjectOutput out, Object data, String version) throws IOException {
+        // 请求体相关的内容，都封装在了RpcInvocation
         RpcInvocation inv = (RpcInvocation) data;
 
-        out.writeUTF(version);
+        out.writeUTF(version);// 写入版本号
         // https://github.com/apache/dubbo/issues/6138
         String serviceName = inv.getAttachment(INTERFACE_KEY);
         if (serviceName == null) {
             serviceName = inv.getAttachment(PATH_KEY);
         }
+        // 写入服务名称
         out.writeUTF(serviceName);
+        // 写入Service版本号
         out.writeUTF(inv.getAttachment(VERSION_KEY));
-
+        // 写入方法名称
         out.writeUTF(inv.getMethodName());
+        // 写入参数类型列表
         out.writeUTF(inv.getParameterTypesDesc());
+        // 依次写入全部参数
         Object[] args = inv.getArguments();
         if (args != null) {
             for (int i = 0; i < args.length; i++) {
                 out.writeObject(encodeInvocationArgument(channel, inv, i));
             }
         }
+        // 依次写入全部的附加信息
         out.writeAttachments(inv.getObjectAttachments());
     }
 

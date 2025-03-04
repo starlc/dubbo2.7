@@ -22,6 +22,14 @@ import org.apache.dubbo.remoting.buffer.ChannelBuffer;
 
 import java.io.IOException;
 
+/**
+ * Codec2 接口提供了 encode() 和 decode() 两个方法来实现消息与字节流之间的相互转换。
+ * 需要注意与 DecodeHandler 区分开来，DecodeHandler 是对请求体和响应结果的解码，
+ * Codec2 是对整个请求和响应的编解码。
+ *
+ * Codec2 接口被 @SPI 接口修饰了，表示该接口是一个扩展接口，同时其 encode() 方法和 decode() 方法都被 @Adaptive 注解修饰，
+ * 也就会生成适配器类，其中会根据 URL 中的 codec 值确定具体的扩展实现类。
+ */
 @SPI
 public interface Codec2 {
 

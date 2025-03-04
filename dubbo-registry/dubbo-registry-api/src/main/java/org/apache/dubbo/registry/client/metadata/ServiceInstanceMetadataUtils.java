@@ -54,6 +54,9 @@ import static org.apache.dubbo.rpc.Constants.ID_KEY;
  * @see MetadataService
  * @see URL
  * @since 2.7.5
+ *
+ * 从每个 ServiceInstance 的 metadata 集合中获取最新的修订版本（Key 为 dubbo.exported-services.revision），
+ * 那么该修订版本的信息是在哪里写入的呢
  */
 public class ServiceInstanceMetadataUtils {
 
@@ -227,10 +230,13 @@ public class ServiceInstanceMetadataUtils {
      */
     public static Integer getProtocolPort(ServiceInstance serviceInstance, String protocol) {
         Map<String, String> metadata = serviceInstance.getMetadata();
+        // 从metadata集合中进行查询
         String rawEndpoints = metadata.get(ENDPOINTS);
         if (StringUtils.isNotEmpty(rawEndpoints)) {
+            // 将JSON格式的数据进行反序列化，这里的Endpoint是ServiceDiscoveryRegistry的内部类，只有port和protocol两个字段
             List<Endpoint> endpoints = JSON.parseArray(rawEndpoints, Endpoint.class);
             for (Endpoint endpoint : endpoints) {
+                // 根据Protocol获取对应的port
                 if (endpoint.getProtocol().equals(protocol)) {
                     return endpoint.getPort();
                 }

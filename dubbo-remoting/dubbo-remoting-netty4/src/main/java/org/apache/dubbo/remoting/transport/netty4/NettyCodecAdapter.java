@@ -70,28 +70,35 @@ final public class NettyCodecAdapter {
         }
     }
 
+    /**
+     * 将真正的编解码功能委托给 NettyServer 关联的这个 Codec2 对象去处理
+     */
     private class InternalDecoder extends ByteToMessageDecoder {
 
         @Override
         protected void decode(ChannelHandlerContext ctx, ByteBuf input, List<Object> out) throws Exception {
-
+            //1. 将ByteBuf封装成统一的ChannelBuffer
             ChannelBuffer message = new NettyBackedChannelBuffer(input);
-
+            // 拿到关联的Channel
             NettyChannel channel = NettyChannel.getOrAddChannel(ctx.channel(), url, handler);
 
-            // decode object.
+            // decode object. // 2. 循环解码
             do {
+                // 记录当前readerIndex的位置,用于可能的回滚
                 int saveReaderIndex = message.readerIndex();
+                // 3.委托给Codec2进行解码 DubboCountCodec->DubboCodec->CodecSupport->具体序列化方式进行解码操作
                 Object msg = codec.decode(channel, message);
+                // 4. 处理半包情况 当前接收到的数据不足一个消息的长度，会返回NEED_MORE_INPUT，
+                // 这里会重置readerIndex，继续等待接收更多的数据
                 if (msg == Codec2.DecodeResult.NEED_MORE_INPUT) {
-                    message.readerIndex(saveReaderIndex);
-                    break;
+                    message.readerIndex(saveReaderIndex);// 回滚读指针
+                    break;// 等待更多数据
                 } else {
                     //is it possible to go here ?
                     if (saveReaderIndex == message.readerIndex()) {
                         throw new IOException("Decode without read data.");
                     }
-                    if (msg != null) {
+                    if (msg != null) { // 解码成功，将读取到的消息传递给后面的Handler处理
                         out.add(msg);
                     }
                 }

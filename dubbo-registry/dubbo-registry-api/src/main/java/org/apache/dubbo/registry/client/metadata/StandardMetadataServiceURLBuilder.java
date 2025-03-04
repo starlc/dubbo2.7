@@ -38,7 +38,8 @@ import static org.apache.dubbo.registry.client.metadata.ServiceInstanceMetadataU
 
 /**
  * Standard Dubbo provider enabling introspection service discovery mode.
- *
+ * 根据 ServiceInstance.metadata 携带的 URL 参数、Service Name、ServiceInstance
+ * 的 host 等信息构造 MetadataService 服务对应 URL
  * @see MetadataService
  * @since 2.7.5
  */
@@ -55,14 +56,19 @@ public class StandardMetadataServiceURLBuilder implements MetadataServiceURLBuil
     @Override
     public List<URL> build(ServiceInstance serviceInstance) {
 
+        // 从metadata集合中获取"dubbo.metadata-service.url-params"这个Key对应的Value值，
+        // 这个Key是在MetadataServiceURLParamsMetadataCustomizer中写入的
         Map<String, Map<String, String>> paramsMap = getMetadataServiceURLsParams(serviceInstance);
 
         List<URL> urls = new ArrayList<>(paramsMap.size());
 
+        // 获取Service Name
         String serviceName = serviceInstance.getServiceName();
 
+        // 获取ServiceInstance监听的host
         String host = serviceInstance.getHost();
 
+        // MetadataService接口可能被发布成多种协议，遍历paramsMap集合，为每种协议都生成对应的URL
         for (Map.Entry<String, Map<String, String>> entry : paramsMap.entrySet()) {
             String protocol = entry.getKey();
             Map<String, String> params = entry.getValue();

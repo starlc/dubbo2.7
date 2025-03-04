@@ -24,6 +24,9 @@ import org.apache.dubbo.remoting.zookeeper.ZookeeperTransporter;
 
 /**
  * ZookeeperRegistryFactory.
+ * ZookeeperRegistryFactory 实现了 AbstractRegistryFactory，
+ * 其中的 createRegistry() 方法会创建 ZookeeperRegistry 实例，
+ * 后续将由该 ZookeeperRegistry 实例完成与 Zookeeper 的交互。
  */
 public class ZookeeperRegistryFactory extends AbstractRegistryFactory {
 
@@ -35,7 +38,8 @@ public class ZookeeperRegistryFactory extends AbstractRegistryFactory {
 
     /**
      * Invisible injection of zookeeper client via IOC/SPI
-     *
+     * 这里标注了无效了
+     * 提供了一个 setZookeeperTransporter() 方法，你可以回顾一下之前我们介绍的 Dubbo SPI 机制，会通过 SPI 或 Spring Ioc 的方式完成自动装载。
      * @param zookeeperTransporter
      */
     @Inject(enable = false)

@@ -18,6 +18,10 @@ package org.apache.dubbo.remoting.transport;
 
 import org.apache.dubbo.remoting.ChannelHandler;
 
+/**
+ * ChannelHandlerDelegate接口是对另一个 ChannelHandler 对象的封装，它的两个实现类
+ * AbstractChannelHandlerDelegate 和 WrappedChannelHandler 中也仅仅是封装了另一个 ChannelHandler 对象。
+ */
 public interface ChannelHandlerDelegate extends ChannelHandler {
     ChannelHandler getHandler();
 }

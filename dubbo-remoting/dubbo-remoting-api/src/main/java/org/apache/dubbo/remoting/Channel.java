@@ -24,11 +24,15 @@ import java.net.InetSocketAddress;
  * @see org.apache.dubbo.remoting.Client
  * @see RemotingServer#getChannels()
  * @see RemotingServer#getChannel(InetSocketAddress)
+ * Dubbo 将 Endpoint 之间的 TCP 连接抽象为通道（Channel）
+ * Channel 是对两个 Endpoint 连接的抽象，好比连接两个位置的传送带，
+ * 两个 Endpoint 传输的消息就好比传送带上的货物，消息发送端会往 Channel 写入消息，而接收端会从 Channel 读取消息。
  */
 public interface Channel extends Endpoint {
 
     /**
      * get remote address.
+     * 获取远程服务器地址
      *
      * @return remote address.
      */

@@ -40,20 +40,22 @@ import static org.apache.dubbo.remoting.Constants.DEFAULT_ACCEPTS;
 
 /**
  * AbstractServer
+ * AbstractServer 是对服务端的抽象，实现了服务端的公共逻辑
  */
 public abstract class AbstractServer extends AbstractEndpoint implements RemotingServer {
 
     protected static final String SERVER_THREAD_POOL_NAME = "DubboServerHandler";
     private static final Logger logger = LoggerFactory.getLogger(AbstractServer.class);
-    ExecutorService executor;
-    private InetSocketAddress localAddress;
-    private InetSocketAddress bindAddress;
-    private int accepts;
+    ExecutorService executor;//当前 Server 关联的线程池，由上面的 ExecutorRepository 创建并管理。
+    private InetSocketAddress localAddress;//Server 的本地地址
+    private InetSocketAddress bindAddress;//绑定的地址 都是从 URL 中的参数中获取。bindAddress 默认值与 localAddress 一致。
+    private int accepts;//该 Server 能接收的最大连接数，从 URL 的 accepts 参数中获取，默认值为 0，表示没有限制。
 
     private ExecutorRepository executorRepository = ExtensionLoader.getExtensionLoader(ExecutorRepository.class).getDefaultExtension();
 
     public AbstractServer(URL url, ChannelHandler handler) throws RemotingException {
-        super(url, handler);
+        super(url, handler);// 调用父类的构造方法
+        // 根据传入的URL初始化localAddress和bindAddress
         localAddress = getUrl().toInetSocketAddress();
 
         String bindIp = getUrl().getParameter(Constants.BIND_IP_KEY, getUrl().getHost());
@@ -62,9 +64,10 @@ public abstract class AbstractServer extends AbstractEndpoint implements Remotin
             bindIp = ANYHOST_VALUE;
         }
         bindAddress = new InetSocketAddress(bindIp, bindPort);
+        // 初始化accepts等字段
         this.accepts = url.getParameter(ACCEPTS_KEY, DEFAULT_ACCEPTS);
         try {
-            doOpen();
+            doOpen();// 调用doOpen()这个抽象方法，启动该Server
             if (logger.isInfoEnabled()) {
                 logger.info("Start " + getClass().getSimpleName() + " bind " + getBindAddress() + ", export " + getLocalAddress());
             }
@@ -72,6 +75,7 @@ public abstract class AbstractServer extends AbstractEndpoint implements Remotin
             throw new RemotingException(url.toInetSocketAddress(), null, "Failed to bind " + getClass().getSimpleName()
                     + " on " + getLocalAddress() + ", cause: " + t.getMessage(), t);
         }
+        // 获取该Server关联的线程池 默认为 核心数200 队列为SynchronousQueue 的固定线程池
         executor = executorRepository.createExecutorIfAbsent(url);
     }
 

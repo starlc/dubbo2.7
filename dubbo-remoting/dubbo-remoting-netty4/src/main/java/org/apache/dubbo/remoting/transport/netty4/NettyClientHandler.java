@@ -35,6 +35,9 @@ import static org.apache.dubbo.common.constants.CommonConstants.HEARTBEAT_EVENT;
 
 /**
  * NettyClientHandler
+ * 同样是实现了 Netty 中的 ChannelDuplexHandler，其中会将所有方法委托给 NettyClient 关联的
+ * ChannelHandler 对象进行处理。
+ * 两者在 userEventTriggered() 方法的实现上有所不同，
  */
 @io.netty.channel.ChannelHandler.Sharable
 public class NettyClientHandler extends ChannelDuplexHandler {
@@ -109,8 +112,17 @@ public class NettyClientHandler extends ChannelDuplexHandler {
         });
     }
 
+    /**
+     * 客户端默认心跳间隔为 1 分钟
+     * 可通过 heartbeat 参数配置
+     * 发送心跳包保持连接活跃
+     * @param ctx
+     * @param evt
+     * @throws Exception
+     */
     @Override
     public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
+        //NettyServerHandler 在收到 IdleStateEvent 事件时会断开连接，而 NettyClientHandler 则会发送心跳消息
         // send heartbeat when read idle.
         if (evt instanceof IdleStateEvent) {
             try {
@@ -122,6 +134,7 @@ public class NettyClientHandler extends ChannelDuplexHandler {
                 req.setVersion(Version.getProtocolVersion());
                 req.setTwoWay(true);
                 req.setEvent(HEARTBEAT_EVENT);
+                // 发送心跳请求
                 channel.send(req);
             } finally {
                 NettyChannel.removeChannelIfDisconnected(ctx.channel());

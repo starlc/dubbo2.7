@@ -1,0 +1,103 @@
+@startuml
+title 服务端接收消息Handler调用链
+
+participant "NettyServerHandler" as nettyHandler
+participant "DecodeHandler" as decodeHandler
+participant "MultiMessageHandler" as multiHandler
+participant "HeartbeatHandler" as heartbeatHandler
+participant "AllChannelHandler" as allHandler
+participant "HeaderExchangeHandler" as exchangeHandler
+participant "DubboProtocol$ExchangeHandler" as dubboHandler
+
+-> nettyHandler: channelRead()
+activate nettyHandler
+
+nettyHandler -> decodeHandler: received()
+activate decodeHandler
+
+decodeHandler -> multiHandler: received()
+activate multiHandler
+
+multiHandler -> heartbeatHandler: received()
+activate heartbeatHandler
+
+heartbeatHandler -> allHandler: received()
+activate allHandler
+
+allHandler -> exchangeHandler: received()
+activate exchangeHandler
+
+exchangeHandler -> dubboHandler: reply()
+activate dubboHandler
+
+dubboHandler --> exchangeHandler
+deactivate dubboHandler
+
+exchangeHandler --> allHandler
+deactivate exchangeHandler
+
+allHandler --> heartbeatHandler
+deactivate allHandler
+
+heartbeatHandler --> multiHandler
+deactivate heartbeatHandler
+
+multiHandler --> decodeHandler
+deactivate multiHandler
+
+decodeHandler --> nettyHandler
+deactivate decodeHandler
+
+<-- nettyHandler
+deactivate nettyHandler
+
+note right of nettyHandler
+  Netty原生Handler:
+  1. 数据解码完成后的入口
+  2. 将Netty事件转换为Dubbo事件
+  3. 触发Dubbo Handler链处理
+end note
+
+note right of decodeHandler
+  解码处理器:
+  1. 对消息进行解码
+  2. 处理请求和响应解码
+  3. 确保消息可被后续Handler处理
+end note
+
+note right of multiHandler
+  批量消息处理器:
+  1. 解析复合消息
+  2. 拆分后逐个处理
+  3. 提高网络传输效率
+end note
+
+note right of heartbeatHandler
+  心跳消息处理器:
+  1. 识别心跳请求和响应
+  2. 维护连接活性
+  3. 自动响应心跳请求
+end note
+
+note right of allHandler
+  线程池分发处理器:
+  1. 将请求分发到业务线程池
+  2. 避免IO线程阻塞
+  3. 实现请求的并发处理
+end note
+
+note right of exchangeHandler
+  请求响应处理器:
+  1. 管理请求响应状态
+  2. 处理请求超时
+  3. 维护请求-响应映射
+end note
+
+note right of dubboHandler
+  业务层Handler:
+  1. 服务查找和调用
+  2. 结果序列化
+  3. 异常处理和包装
+end note
+
+@enduml

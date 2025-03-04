@@ -85,7 +85,7 @@ public class ServiceInstancesChangedListener implements ConditionalEventListener
 
     /**
      * On {@link ServiceInstancesChangedEvent the service instances change event}
-     *
+     * 这一部分在原有的版本上面有做改进，变成了事件驱动了
      * @param event {@link ServiceInstancesChangedEvent}
      */
     public synchronized void onEvent(ServiceInstancesChangedEvent event) {
@@ -103,6 +103,7 @@ public class ServiceInstancesChangedListener implements ConditionalEventListener
         for (Map.Entry<String, List<ServiceInstance>> entry : allInstances.entrySet()) {
             List<ServiceInstance> instances = entry.getValue();
             for (ServiceInstance instance : instances) {
+                // 获取该ServiceInstance.metadata中携带的revision值
                 String revision = getExportedServicesRevision(instance);
                 if (DEFAULT_REVISION.equals(revision)) {
                     logger.info("Find instance without valid service metadata: " + instance.getAddress());
@@ -113,6 +114,7 @@ public class ServiceInstancesChangedListener implements ConditionalEventListener
 
                 MetadataInfo metadata = revisionToMetadata.get(revision);
                 if (metadata == null) {
+                    //根据实例信息获取metadata
                     metadata = getMetadataInfo(instance);
                     logger.info("MetadataInfo for instance " + instance.getAddress() + "?revision=" + revision + " is " + metadata);
                     if (metadata != null) {
@@ -156,6 +158,7 @@ public class ServiceInstancesChangedListener implements ConditionalEventListener
     }
 
     private MetadataInfo getMetadataInfo(ServiceInstance instance) {
+        // 获取指定ServiceInstance实例存储元数据的类型
         String metadataType = ServiceInstanceMetadataUtils.getMetadataStorageType(instance);
         // FIXME, check "REGISTRY_CLUSTER_KEY" must be set by every registry implementation.
         instance.getExtendParams().putIfAbsent(REGISTRY_CLUSTER_KEY, RegistryClusterIdentifier.getExtension(url).consumerKey(url));
@@ -168,6 +171,7 @@ public class ServiceInstancesChangedListener implements ConditionalEventListener
                 RemoteMetadataServiceImpl remoteMetadataService = MetadataUtils.getRemoteMetadataService();
                 metadataInfo = remoteMetadataService.getMetadata(instance);
             } else {
+                // 创建MetadataService接口的本地代理
                 MetadataService metadataServiceProxy = MetadataUtils.getMetadataServiceProxy(instance, serviceDiscovery);
                 metadataInfo = metadataServiceProxy.getMetadataInfo(ServiceInstanceMetadataUtils.getExportedServicesRevision(instance));
             }

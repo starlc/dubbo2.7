@@ -40,7 +40,8 @@ import static org.apache.dubbo.event.EventDispatcher.getDefaultExtension;
 
 /**
  * The common operations of Service Discovery
- *
+ * 在 Dubbo 创建 ServiceDiscovery 对象的时候，会通过 ServiceDiscoveryFactory 工厂类进行创建。
+ * ServiceDiscoveryFactory 接口也是一个扩展接口，Dubbo 只提供了一个默认实现—— DefaultServiceDiscoveryFactory
  * @since 2.7.5
  */
 @SPI("zookeeper")
@@ -50,7 +51,7 @@ public interface ServiceDiscovery extends Prioritized {
 
     /**
      * Initializes the {@link ServiceDiscovery}
-     *
+     * // 初始化当前ServiceDiscovery实例，传入的是注册中心的URL
      * @param registryURL the {@link URL url} to connect service registry
      * @throws Exception If met with error
      */
@@ -58,7 +59,7 @@ public interface ServiceDiscovery extends Prioritized {
 
     /**
      * Destroy the {@link ServiceDiscovery}
-     *
+     * // 销毁当前ServiceDiscovery实例
      * @throws Exception If met with error
      */
     void destroy() throws Exception;
@@ -69,7 +70,7 @@ public interface ServiceDiscovery extends Prioritized {
 
     /**
      * Registers an instance of {@link ServiceInstance}.
-     *
+     * // 发布传入的ServiceInstance实例
      * @param serviceInstance an instance of {@link ServiceInstance} to be registered
      * @throws RuntimeException if failed
      */
@@ -77,7 +78,7 @@ public interface ServiceDiscovery extends Prioritized {
 
     /**
      * Updates the registered {@link ServiceInstance}.
-     *
+     * 更新传入的ServiceInstance实例
      * @param serviceInstance the registered {@link ServiceInstance}
      * @throws RuntimeException if failed
      */
@@ -85,7 +86,7 @@ public interface ServiceDiscovery extends Prioritized {
 
     /**
      * Unregisters an instance of {@link ServiceInstance}.
-     *
+     * 注销传入的ServiceInstance实例
      * @param serviceInstance an instance of {@link ServiceInstance} to be unregistered
      * @throws RuntimeException if failed
      */
@@ -97,7 +98,7 @@ public interface ServiceDiscovery extends Prioritized {
 
     /**
      * Get the default size of pagination query
-     *
+     * 分页查询时默认每页的条数
      * @return the default value is 100
      */
     default int getDefaultPageSize() {
@@ -107,13 +108,14 @@ public interface ServiceDiscovery extends Prioritized {
     /**
      * Gets all service names
      *
+     * 查询全部Service Name
      * @return non-null read-only {@link Set}
      */
     Set<String> getServices();
 
     /**
      * Gets all {@link ServiceInstance service instances} by the specified service name.
-     *
+     * 根据ServiceName分页查询ServiceInstance
      * @param serviceName the service name
      * @return non-null {@link List}
      * @throws NullPointerException if <code>serviceName</code> is <code>null</code>
@@ -142,7 +144,7 @@ public interface ServiceDiscovery extends Prioritized {
     /**
      * Gets the {@link Page pagination} of {@link ServiceInstance service instances} by the specified service name.
      * It's equal to {@link #getInstances(String, int, int, boolean)} with <code>healthyOnly == true</code>
-     *
+     * 分页查询ServiceInstance
      * @param serviceName the service name
      * @param offset      the offset of request , the number "0" indicates first page
      * @param pageSize    the number of request, the {@link Integer#MAX_VALUE max value} indicates the range is unlimited
@@ -205,7 +207,7 @@ public interface ServiceDiscovery extends Prioritized {
      * trigger or adapt the vendor's change notification mechanism typically, like Zookeeper Watcher,
      * Nacos EventListener. If the registry observes the change, It's suggested that the implementation could invoke
      * {@link #dispatchServiceInstancesChangedEvent(String)} method or variants
-     *
+     * 添加ServiceInstance监听器
      * @param listener an instance of {@link ServiceInstancesChangedListener}
      * @throws NullPointerException
      * @throws IllegalArgumentException
@@ -227,7 +229,7 @@ public interface ServiceDiscovery extends Prioritized {
 
     /**
      * Dispatch the {@link ServiceInstancesChangedEvent}
-     *
+     * 触发ServiceInstancesChangedEvent事件
      * @param serviceName the name of service whose service instances have been changed
      */
     default void dispatchServiceInstancesChangedEvent(String serviceName) {

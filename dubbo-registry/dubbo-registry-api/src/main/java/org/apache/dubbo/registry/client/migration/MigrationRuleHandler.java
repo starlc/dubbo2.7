@@ -21,6 +21,32 @@ import org.apache.dubbo.common.logger.LoggerFactory;
 import org.apache.dubbo.rpc.cluster.support.migration.MigrationRule;
 import org.apache.dubbo.rpc.cluster.support.migration.MigrationStep;
 
+/**
+ * 迁徙规则Handler
+ * MigrationRuleHandler是 Dubbo 中负责处理服务迁移规则的处理器，主要用于实现服务注册中心的迁移。让我解释其核心功能：
+ *
+ * 1. 主要职责 ：
+ * - 处理服务迁移规则
+ * - 控制服务调用方式的切换
+ * - 管理迁移过程中的状态变更
+ * 2.迁移步骤 （MigrationStep）
+ *
+ * 3. 迁移场景 ：
+ * - 从接口级服务发现迁移到应用级服务发现
+ * - 多注册中心之间的迁移
+ * - 服务调用方式的切换
+ * 4. 核心方法 doMigrate ：
+ * - 解析迁移规则
+ * - 检查是否需要执行迁移
+ * - 根据规则执行相应的迁移策略
+ * - 处理多注册中心的特殊情况
+ * 5. 使用场景 ：
+ * - 服务治理架构升级
+ * - 注册中心迁移
+ * - 服务发现模式切换
+ * 这个处理器在 Dubbo 的服务治理中扮演重要角色，使得服务架构的演进能够平滑进行，不影响现有业务。
+ * @param <T>
+ */
 public class MigrationRuleHandler<T> {
     private static final Logger logger = LoggerFactory.getLogger(MigrationRuleHandler.class);
 
@@ -54,14 +80,14 @@ public class MigrationRuleHandler<T> {
             }
         } else {
             switch (rule.getStep()) {
-                case APPLICATION_FIRST:
+                case APPLICATION_FIRST:// 应用级服务发现优先
                     migrationInvoker.migrateToServiceDiscoveryInvoker(false);
                     break;
-                case FORCE_APPLICATION:
+                case FORCE_APPLICATION:// 强制使用应用级服务发现
                     migrationInvoker.migrateToServiceDiscoveryInvoker(true);
                     break;
-                case FORCE_INTERFACE:
-                default:
+                case FORCE_INTERFACE:// 强制使用接口级服务发现
+                default://默认 接口级别调用
                     migrationInvoker.fallbackToInterfaceInvoker();
             }
         }

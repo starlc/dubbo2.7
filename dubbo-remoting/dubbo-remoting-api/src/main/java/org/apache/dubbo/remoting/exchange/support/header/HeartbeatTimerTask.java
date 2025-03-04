@@ -42,10 +42,13 @@ public class HeartbeatTimerTask extends AbstractTimerTask {
     @Override
     protected void doTask(Channel channel) {
         try {
+            // 获取最后一次读写时间
+            //这里 lastRead 和 lastWrite 时间戳，都是从要待处理 Channel 的附加属性中获取的，对应的 Key 分别是：KEY_READ_TIMESTAMP、KEY_WRITE_TIMESTAMP。
             Long lastRead = lastRead(channel);
             Long lastWrite = lastWrite(channel);
             if ((lastRead != null && now() - lastRead > heartbeat)
                     || (lastWrite != null && now() - lastWrite > heartbeat)) {
+                // 最后一次读写时间超过心跳时间，就会发送心跳请求
                 Request req = new Request();
                 req.setVersion(Version.getProtocolVersion());
                 req.setTwoWay(true);

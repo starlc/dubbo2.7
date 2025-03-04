@@ -33,6 +33,8 @@ import java.io.OutputStream;
 /**
  * Subclasses {@link org.apache.dubbo.remoting.telnet.codec.TelnetCodec} and {@link org.apache.dubbo.remoting.exchange.codec.ExchangeCodec}
  * both override all the methods declared in this class.
+ * 表示已经废弃
+ * 根据 getSerialization() 方法选择的序列化方法对传入消息或 ChannelBuffer 进行序列化或反序列化
  */
 @Deprecated
 public class TransportCodec extends AbstractCodec {
@@ -41,6 +43,7 @@ public class TransportCodec extends AbstractCodec {
     public void encode(Channel channel, ChannelBuffer buffer, Object message) throws IOException {
         OutputStream output = new ChannelBufferOutputStream(buffer);
         ObjectOutput objectOutput = getSerialization(channel).serialize(channel.getUrl(), output);
+        //对消息进行编码
         encodeData(channel, objectOutput, message);
         objectOutput.flushBuffer();
         if (objectOutput instanceof Cleanable) {

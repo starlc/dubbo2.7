@@ -50,6 +50,10 @@ import static org.apache.dubbo.registry.zookeeper.util.CuratorFrameworkUtils.bui
 /**
  * Zookeeper {@link ServiceDiscovery} implementation based on
  * <a href="https://curator.apache.org/curator-x-discovery/index.html">Apache Curator X Discovery</a>
+ *
+ * Dubbo 提供了多个 ServiceDiscovery 用来接入多种注册中心，
+ * 下面我们以 ZookeeperServiceDiscovery 为例介绍 Dubbo 是如何接入 ZooKeeper 作为注册中心，
+ * 实现服务实例发布和订阅的
  */
 public class ZookeeperServiceDiscovery extends AbstractServiceDiscovery {
 
@@ -71,8 +75,11 @@ public class ZookeeperServiceDiscovery extends AbstractServiceDiscovery {
     @Override
     public void initialize(URL registryURL) throws Exception {
         this.registryURL = registryURL;
+        // 初始化CuratorFramework
         this.curatorFramework = buildCuratorFramework(registryURL);
+        // 确定rootPath，默认是"/services"
         this.rootPath = ROOT_PATH.getParameterValue(registryURL);
+        // 初始化Curator ServiceDiscovery并启动
         this.serviceDiscovery = buildServiceDiscovery(curatorFramework, rootPath);
         this.serviceDiscovery.start();
     }
@@ -191,8 +198,11 @@ public class ZookeeperServiceDiscovery extends AbstractServiceDiscovery {
     }
 
     protected void registerServiceWatcher(String serviceName, ServiceInstancesChangedListener listener) {
+        // 构造要监听的path
         String path = buildServicePath(serviceName);
         try {
+            // 在path上添加上面构造的ZookeeperServiceDiscoveryChangeWatcher监听器，
+            // 来监听子节点的变化
             curatorFramework.create().creatingParentsIfNeeded().forPath(path);
         } catch (KeeperException.NodeExistsException e) {
             // ignored
@@ -205,6 +215,7 @@ public class ZookeeperServiceDiscovery extends AbstractServiceDiscovery {
         }
 
         CuratorWatcher prev = watcherCaches.get(path);
+        // 创建监听器ZookeeperServiceDiscoveryChangeWatcher并记录到watcherCaches缓存中
         CuratorWatcher watcher = watcherCaches.computeIfAbsent(path, key ->
                 new ZookeeperServiceDiscoveryChangeWatcher(this, serviceName, listener));
         try {

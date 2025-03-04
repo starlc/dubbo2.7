@@ -90,13 +90,18 @@ public abstract class CuratorFrameworkUtils {
         return serviceInstance;
     }
 
+    // 在build()方法中会将Dubbo中的ServiceInstance对象转换成Curator中的ServiceInstance对象
     public static org.apache.curator.x.discovery.ServiceInstance<ZookeeperInstance> build(ServiceInstance serviceInstance) {
         ServiceInstanceBuilder builder = null;
+        // 获取Service Name
         String serviceName = serviceInstance.getServiceName();
         String host = serviceInstance.getHost();
         int port = serviceInstance.getPort();
+        // 获取元数据
         Map<String, String> metadata = serviceInstance.getMetadata();
+        // 生成的id格式是"host:ip"
         String id = generateId(host, port);
+        // ZookeeperInstance是Curator ServiceInstance的payload
         ZookeeperInstance zookeeperInstance = new ZookeeperInstance(null, serviceName, metadata);
         try {
             builder = builder()

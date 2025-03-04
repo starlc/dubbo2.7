@@ -1,0 +1,98 @@
+@startuml
+title Channel与Handler对应关系
+
+participant "NettyChannel" as channel
+participant "NettyCodecAdapter" as codec
+participant "NettyHandler" as nettyHandler
+participant "MultiMessageHandler" as multiHandler
+participant "HeartbeatHandler" as heartbeatHandler
+participant "AllChannelHandler" as allHandler
+participant "DecodeHandler" as decodeHandler
+participant "HeaderExchangeHandler" as headerHandler
+participant "DubboProtocol$RequestHandler" as requestHandler
+
+note over channel, requestHandler
+  Netty Pipeline中的Handler调用链:
+  1. NettyCodecAdapter.InternalDecoder (解码)
+  2. NettyCodecAdapter.InternalEncoder (编码)
+  3. NettyHandler
+  4. MultiMessageHandler
+  5. HeartbeatHandler
+  6. AllChannelHandler
+  7. DecodeHandler
+  8. HeaderExchangeHandler
+  9. RequestHandler
+end note
+
+-> channel: received message
+
+channel -> codec: decode()
+activate codec
+note right: 消息解码
+
+codec -> nettyHandler: channelRead()
+deactivate codec
+activate nettyHandler
+note right: Netty原生处理
+
+nettyHandler -> multiHandler: received()
+deactivate nettyHandler
+activate multiHandler
+note right: 多消息处理
+
+multiHandler -> heartbeatHandler: received()
+deactivate multiHandler
+activate heartbeatHandler
+note right: 心跳检测
+
+heartbeatHandler -> allHandler: received()
+deactivate heartbeatHandler
+activate allHandler
+note right: 线程池分发
+
+allHandler -> decodeHandler: received()
+deactivate allHandler
+activate decodeHandler
+note right
+  解码处理:
+  1. 处理Request/Response解码
+  2. 处理Telnet命令解码
+  3. 处理心跳消息解码
+end note
+
+decodeHandler -> headerHandler: received()
+deactivate decodeHandler
+activate headerHandler
+note right: 信息交换处理
+
+headerHandler -> requestHandler: received()
+deactivate headerHandler
+activate requestHandler
+note right: 请求处理
+
+requestHandler --> channel: 处理完成
+deactivate requestHandler
+
+note right of decodeHandler
+  DecodeHandler职责:
+  1. 对应NettyChannel
+  2. 处理解码后的消息
+  3. 确保消息已被解码
+  4. 防止重复解码
+end note
+
+note right of allHandler
+  AllChannelHandler职责:
+  1. 线程池分发
+  2. 异步处理消息
+  3. 处理连接事件
+end note
+
+note right of headerHandler
+  HeaderExchangeHandler职责:
+  1. 处理请求响应
+  2. 心跳检测
+  3. 异常处理
+end note
+
+@enduml

@@ -32,6 +32,9 @@ import static org.apache.zookeeper.Watcher.Event.EventType.NodeDataChanged;
  * {@link Watcher.Event.EventType#NodeChildrenChanged} and {@link Watcher.Event.EventType#NodeDataChanged} event types,
  * which will multicast a {@link ServiceInstancesChangedEvent} when the service node has been changed.
  *
+ * 是 ZookeeperServiceDiscovery 配套的 CuratorWatcher 实现，
+ * 其中 process() 方法实现会关注 NodeChildrenChanged 事件和 NodeDataChanged 事件，
+ * 并调用关联的 ZookeeperServiceDiscovery 对象的 dispatchServiceInstancesChangedEvent() 方法
  * @since 2.7.5
  */
 public class ZookeeperServiceDiscoveryChangeWatcher implements CuratorWatcher {
@@ -51,13 +54,22 @@ public class ZookeeperServiceDiscoveryChangeWatcher implements CuratorWatcher {
         this.listener = listener;
     }
 
+    /**
+     * ZookeeperServiceDiscoveryChangeWatcher 的核心就是将 ZooKeeper 中的事件转换成了
+     * Dubbo 内部的 ServiceInstancesChangedEvent 事件。
+     * @param event
+     * @throws Exception
+     */
     @Override
     public void process(WatchedEvent event) throws Exception {
 
+        // 获取监听到的事件类型
         Watcher.Event.EventType eventType = event.getType();
 
+        // 这里只关注NodeChildrenChanged和NodeDataChanged两种事件类型
         if (NodeChildrenChanged.equals(eventType) || NodeDataChanged.equals(eventType)) {
             if (shouldKeepWatching()) {
+                // 调用dispatchServiceInstancesChangedEvent()方法，分发ServiceInstancesChangedEvent事件
                 listener.onEvent(new ServiceInstancesChangedEvent(serviceName, zookeeperServiceDiscovery.getInstances(serviceName)));
                 zookeeperServiceDiscovery.registerServiceWatcher(serviceName, listener);
                 // only the current registry will be queried, which may be pushed empty.

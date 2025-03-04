@@ -94,19 +94,39 @@ import static org.apache.dubbo.rpc.Constants.ID_KEY;
  * @see FailbackRegistry
  * @see WritableMetadataService
  * @since 2.7.5
+ *
+ * ServiceDiscoveryRegistry 是一个面向服务实例（ServiceInstance）的注册中心实现，
+ * 其底层依赖前面两个课时介绍的 ServiceDiscovery、WritableMetadataService 等组件
+ *
+ * 对应工厂ServiceDiscoveryRegistryFactory（扩展名称是 service-discovery-registry）
  */
 public class ServiceDiscoveryRegistry implements Registry {
 
     protected final Logger logger = LoggerFactory.getLogger(getClass());
 
+    /**
+     * 用于 ServiceInstance 的发布和订阅。
+     */
     private final ServiceDiscovery serviceDiscovery;
 
+    /**
+     * 记录了当前订阅的服务名称。
+     */
     private final Set<String> subscribedServices;
 
+    /**
+     * 用于 Service ID 与 Service Name 之间的转换。
+     */
     private final ServiceNameMapping serviceNameMapping;
 
+    /**
+     * 用于发布和查询元数据。
+     */
     private final WritableMetadataService writableMetadataService;
 
+    /**
+     * 记录了注册的 ServiceInstancesChangedListener 的唯一标识。
+     */
     private final Set<String> registeredListeners = new LinkedHashSet<>();
 
     /* apps - listener */
@@ -124,9 +144,13 @@ public class ServiceDiscoveryRegistry implements Registry {
 
     public ServiceDiscoveryRegistry(URL registryURL) {
         this.registryURL = registryURL;
+        // 初始化ServiceDiscovery对象
         this.serviceDiscovery = createServiceDiscovery(registryURL);
+        // 从registryURL中解析出subscribed-services参数，并按照逗号切分，得到subscribedServices集合
         this.subscribedServices = parseServices(registryURL.getParameter(SUBSCRIBED_SERVICE_NAMES_KEY));
+        // 获取DefaultServiceNameMapping对象
         this.serviceNameMapping = ServiceNameMapping.getExtension(registryURL.getParameter(MAPPING_KEY));
+        // 初始化WritableMetadataService对象
         this.writableMetadataService = WritableMetadataService.getDefaultExtension();
     }
 
@@ -139,17 +163,29 @@ public class ServiceDiscoveryRegistry implements Registry {
      *
      * @param registryURL the {@link URL} to connect the registry
      * @return non-null
+     *
+     * 在 createServiceDiscovery() 方法中，不仅会加载 ServiceDiscovery 的相应实现，
+     * 还会在外层添加 EventPublishingServiceDiscovery 装饰器，在 register()、
+     * initialize() 等方法前后触发相应的事件
      */
     protected ServiceDiscovery createServiceDiscovery(URL registryURL) {
+        // 根据registryURL获取对应的ServiceDiscovery实现
         ServiceDiscovery originalServiceDiscovery = getServiceDiscovery(registryURL);
+        // ServiceDiscovery外层添加一层EventPublishingServiceDiscovery修饰器，
+        // EventPublishingServiceDiscovery会在register()、initialize()等方法前后触发相应的事件，
+        // 例如，在register()方法的前后分别会触发ServiceInstancePreRegisteredEvent和ServiceInstanceRegisteredEvent
         ServiceDiscovery serviceDiscovery = enhanceEventPublishing(originalServiceDiscovery);
-        execute(() -> {
+        execute(() -> {// 初始化ServiceDiscovery
             serviceDiscovery.initialize(registryURL.addParameter(INTERFACE_KEY, ServiceDiscovery.class.getName())
                     .removeParameter(REGISTRY_TYPE_KEY));
         });
         return serviceDiscovery;
     }
 
+    /**
+     * 将 ServiceInstance 的信息与元数据进行合并，得到订阅服务的完整 URL。
+     * @return
+     */
     private List<SubscribedURLsSynthesizer> initSubscribedURLsSynthesizers() {
         ExtensionLoader<SubscribedURLsSynthesizer> loader = ExtensionLoader.getExtensionLoader(SubscribedURLsSynthesizer.class);
         return Collections.unmodifiableList(new ArrayList<>(loader.getSupportedExtensionInstances()));
@@ -198,6 +234,7 @@ public class ServiceDiscoveryRegistry implements Registry {
 
     @Override
     public final void register(URL url) {
+        // 检测URL中的side参数是否为provider
         if (!shouldRegister(url)) { // Should Not Register
             return;
         }
@@ -209,6 +246,7 @@ public class ServiceDiscoveryRegistry implements Registry {
         if (registryCluster != null && url.getParameter(REGISTRY_CLUSTER_KEY) == null) {
             url = url.addParameter(REGISTRY_CLUSTER_KEY, registryCluster);
         }
+        // 将元数据发布到MetadataService
         if (writableMetadataService.exportURL(url)) {
             if (logger.isInfoEnabled()) {
                 logger.info(format("The URL[%s] registered successfully.", url.toString()));
@@ -256,9 +294,30 @@ public class ServiceDiscoveryRegistry implements Registry {
         doSubscribe(url, listener);
     }
 
+    /**
+     * 在 ServiceDiscoveryRegistry 的 doSubscribe() 方法中，会执行如下完整的订阅流程：
+     *
+     * 调用 WriteMetadataService.subscribeURL() 方法在 subscribedServiceURLs 集合中记录当前订阅的 URL；
+     *
+     * 通过订阅的 URL 获取 Service Name；
+     *
+     * 根据 Service Name 获取 ServiceInstance 集合；
+     *
+     * 根据 ServiceInstance 调用相应的 MetadataService 服务，获取元数据，其中涉及历史数据的清理和缓存更新等操作；
+     *
+     * 将 ServiceInstance 信息以及对应的元数据信息进行合并，得到完整的 URL；
+     *
+     * 触发 NotifyListener 监听器；
+     *
+     * 添加 ServiceInstancesChangedListener 监听器。
+     * @param url
+     * @param listener
+     */
     public void doSubscribe(URL url, NotifyListener listener) {
+        // 记录该订阅的URL
         writableMetadataService.subscribeURL(url);
 
+        // 获取订阅的Service Name
         Set<String> serviceNames = getServices(url, listener);
 
         if (CollectionUtils.isEmpty(serviceNames)) {
@@ -266,6 +325,7 @@ public class ServiceDiscoveryRegistry implements Registry {
             return;
         }
 
+        // 执行后续的订阅操作
         subscribeURLs(url, listener, serviceNames);
     }
 
@@ -316,6 +376,16 @@ public class ServiceDiscoveryRegistry implements Registry {
         });
     }
 
+    /**
+     * 在 subscribeURLs(url, listener, serviceName, serviceInstances) 这个重载中，
+     * 主要是根据前面获取的 ServiceInstance 实例集合，构造对应的、完整的 subscribedURL 集合，
+     * 并触发传入的 NotifyListener 监听器
+     *
+     * 这个和介绍的版本不一样 修改了实现方式
+     * @param url
+     * @param listener
+     * @param serviceNames
+     */
     protected void subscribeURLs(URL url, NotifyListener listener, Set<String> serviceNames) {
         String serviceNamesKey = serviceNames.toString();
         String protocolServiceKey = url.getServiceKey() + GROUP_CHAR_SEPARATOR + url.getParameter(PROTOCOL_KEY, DUBBO);
@@ -328,18 +398,21 @@ public class ServiceDiscoveryRegistry implements Registry {
         listener.addServiceListener(serviceListener);
 
         serviceListener.addListener(protocolServiceKey, listener);
+        //注册监听
         registerServiceInstancesChangedListener(url, serviceListener);
 
         // FIXME: This will cause redundant duplicate notifications
         serviceNames.forEach(serviceName -> {
             List<ServiceInstance> serviceInstances = serviceDiscovery.getInstances(serviceName);
             if (CollectionUtils.isNotEmpty(serviceInstances)) {
+                //发布服务实例变更事件
                 serviceListener.onEvent(new ServiceInstancesChangedEvent(serviceName, serviceInstances));
             } else {
                 logger.info("getInstances by serviceName=" + serviceName + " is empty, waiting for serviceListener callback. url=" + url);
             }
         });
 
+        // 触发NotifyListener监听器
         listener.notify(serviceListener.getUrls(protocolServiceKey));
 
     }
@@ -366,24 +439,33 @@ public class ServiceDiscoveryRegistry implements Registry {
      * 2.check Interface-App mapping
      * 3.use the services specified in registry url.
      *
+     * getServices() 方法的具体实现：
+     * 它会首先根据 subscribeURL 的 provided-by 参数值获取订阅的 Service Name 集合，
+     * 如果获取失败，则根据 Service ID 获取对应的 Service Name 集合；
+     * 如果此时依旧获取失败，则尝试从 registryURL 中的 subscribed-services 参数值获取 Service Name 集合。
      * @param subscribedURL
      * @return
      */
     protected Set<String> getServices(URL subscribedURL, final NotifyListener listener) {
         Set<String> subscribedServices = new TreeSet<>();
 
+        // 首先尝试从subscribeURL中获取provided-by参数值，其中封装了全部Service Name
         String serviceNames = subscribedURL.getParameter(PROVIDED_BY);
         if (StringUtils.isNotEmpty(serviceNames)) {
             logger.info(subscribedURL.getServiceInterface() + " mapping to " + serviceNames + " instructed by provided-by set by user.");
+            // 解析provided-by参数值，得到全部的Service Name集合
             subscribedServices.addAll(parseServices(serviceNames));
         }
 
         if (isEmpty(subscribedServices)) {
+            // 如果没有指定provided-by参数，则尝试通过subscribedURL构造Service ID，
+            // 然后通过ServiceNameMapping的get()方法查找Service Name
             Set<String> mappedServices = findMappedServices(subscribedURL, new DefaultMappingListener(subscribedURL, subscribedServices, listener));
             logger.info(subscribedURL.getServiceInterface() + " mapping to " + serviceNames + " instructed by remote metadata center.");
             subscribedServices.addAll(mappedServices);
             if (isEmpty(subscribedServices)) {
                 logger.info(subscribedURL.getServiceInterface() + " mapping to " + serviceNames + " by default.");
+                // 如果subscribedServices依旧为空，则返回registryURL中的subscribed-services参数值
                 subscribedServices.addAll(getSubscribedServices());
             }
         }

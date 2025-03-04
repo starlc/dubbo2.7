@@ -22,13 +22,14 @@ import java.util.Map;
 /**
  * The model class of an instance of a service, which is used for service registration and discovery.
  * <p>
- *
+ * Service Instance 唯一标识一个服务实例 这里的服务实例指一个服务节点
  * @since 2.7.5
  */
 public interface ServiceInstance extends Serializable {
 
     /**
      * The id of the registered service instance.
+     * 唯一标识
      *
      * @return nullable
      */
@@ -36,21 +37,21 @@ public interface ServiceInstance extends Serializable {
 
     /**
      * The name of service that current instance belongs to.
-     *
+     * 获取当前ServiceInstance所属的Service Name
      * @return non-null
      */
     String getServiceName();
 
     /**
      * The hostname of the registered service instance.
-     *
+     * 获取当前ServiceInstance的host
      * @return non-null
      */
     String getHost();
 
     /**
      * The port of the registered service instance.
-     *
+     * 获取当前ServiceInstance的port
      * @return the positive integer if present
      */
     Integer getPort();
@@ -62,6 +63,7 @@ public interface ServiceInstance extends Serializable {
      *
      * @return if <code>true</code>, indicates current instance is enabled, or disable, the client should remove this one.
      * The default value is <code>true</code>
+     * // 当前ServiceInstance的状态
      */
     default boolean isEnabled() {
         return true;
@@ -72,6 +74,7 @@ public interface ServiceInstance extends Serializable {
      *
      * @return if <code>true</code>, indicates current instance is enabled, or disable, the client may ignore this one.
      * The default value is <code>true</code>
+     * // 检测当前ServiceInstance的状态
      */
     default boolean isHealthy() {
         return true;
@@ -79,7 +82,7 @@ public interface ServiceInstance extends Serializable {
 
     /**
      * The key / value pair metadata associated with the service instance.
-     *
+     *  // 获取当前ServiceInstance关联的元数据，这些元数据以KV格式存储
      * @return non-null, mutable and unsorted {@link Map}
      */
     Map<String, String> getMetadata();
@@ -112,12 +115,14 @@ public interface ServiceInstance extends Serializable {
 
     /**
      * @return the hash code of current instance.
+     *  计算当前ServiceInstance对象的hashCode值
      */
     int hashCode();
 
     /**
      * @param another another {@link ServiceInstance}
      * @return if equals , return <code>true</code>, or <code>false</code>
+     * 比较两个ServiceInstance对象
      */
     boolean equals(Object another);
 

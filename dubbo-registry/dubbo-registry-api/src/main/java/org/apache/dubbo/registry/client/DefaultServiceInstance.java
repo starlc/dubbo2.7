@@ -26,28 +26,52 @@ import static org.apache.dubbo.common.constants.CommonConstants.REVISION_KEY;
 
 /**
  * The default implementation of {@link ServiceInstance}.
- *
+ * DefaultServiceInstance 是 ServiceInstance 的唯一实现，DefaultServiceInstance 是一个普通的 POJO 类
  * @since 2.7.5
  */
 public class DefaultServiceInstance implements ServiceInstance {
 
     private static final long serialVersionUID = 1149677083747278100L;
 
+    /**
+     * ServiceInstance 唯一标识。
+     */
     private String id;
 
+    /**
+     * ServiceInstance 关联的 Service Name。
+     */
     private String serviceName;
 
+    /**
+     * ServiceInstance 的 host。
+     */
     private String host;
 
+    /**
+     * ServiceInstance 的 port。
+     */
     private Integer port;
 
+    /**
+     * ServiceInstance 是否可用的状态。
+     */
     private boolean enabled;
 
+    /**
+     * ServiceInstance 的健康状态。
+     */
     private boolean healthy;
 
+    /**
+     * ServiceInstance 关联的元数据
+     */
     private Map<String, String> metadata = new HashMap<>();
 
     private transient String address;
+    /**
+     * ServiceInstance 关联的元数据。
+     */
     private transient MetadataInfo serviceMetadata;
     // used at runtime
     private transient Map<String, String> extendParams = new HashMap<>();

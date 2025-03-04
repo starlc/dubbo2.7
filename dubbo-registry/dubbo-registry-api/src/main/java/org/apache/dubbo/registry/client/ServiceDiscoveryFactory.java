@@ -27,6 +27,9 @@ import static org.apache.dubbo.common.extension.ExtensionLoader.getExtensionLoad
  *
  * @see ServiceDiscovery
  * @since 2.7.5
+ *
+ * 创建ServiceDiscovery
+ * Dubbo 只提供了一个默认实现—— DefaultServiceDiscoveryFactory
  */
 @SPI("default")
 public interface ServiceDiscoveryFactory {

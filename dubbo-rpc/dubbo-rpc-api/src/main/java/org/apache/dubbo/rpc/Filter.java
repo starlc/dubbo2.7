@@ -34,6 +34,11 @@ import org.apache.dubbo.common.extension.SPI;
  *    remote call configured caching type's (e.g. Thread Local, JCache etc) implementation invoke method gets called.
  * </pre>
  * Filter. (SPI, Singleton, ThreadSafe)
+ * 拦截 Dubbo 请求
+ *
+ * 在 Filter 接口内部还定义了一个 Listener 接口，有一些 Filter 实现会同时实现这个内部 Listener 接口，
+ * 当 invoke() 方法执行正常结束时，会调用该 Listener 的 onResponse() 方法进行通知；
+ * 当 invoke() 方法执行出现异常时，会调用该 Listener 的 onError() 方法进行通知。
  *
  * @see org.apache.dubbo.rpc.filter.GenericFilter
  * @see org.apache.dubbo.rpc.filter.EchoFilter
@@ -44,10 +49,11 @@ import org.apache.dubbo.common.extension.SPI;
 public interface Filter {
     /**
      * Make sure call invoker.invoke() in your implementation.
+     * 将请求传给后续的Invoker进行处理
      */
     Result invoke(Invoker<?> invoker, Invocation invocation) throws RpcException;
 
-    interface Listener {
+    interface Listener {// 用于监听响应以及异常
 
         void onResponse(Result appResponse, Invoker<?> invoker, Invocation invocation);
 

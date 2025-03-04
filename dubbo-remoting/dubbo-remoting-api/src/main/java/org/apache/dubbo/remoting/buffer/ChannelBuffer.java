@@ -199,12 +199,26 @@ import java.nio.ByteBuffer;
  * Please refer to {@link ChannelBufferInputStream} and {@link
  * ChannelBufferOutputStream}.
  *
+ * ChannelBuffer 接口的设计与 Netty4 中 ByteBuf 抽象类的设计基本一致，也有 readerIndex 和 writerIndex 指针的概念，
+ * 如下所示，它们的核心方法也是如出一辙。
  *
+ * 主要功能 ：
+ * - 数据读写操作
+ * - 缓冲区管理
+ * - 内存分配和释放
+ * - 数据拷贝和转换
+ *
+ *  性能优化 ：
+ * - 减少内存拷贝
+ * - 支持零拷贝
+ * - 提供直接内存访问
+ * - 实现高效的数据传输
  */
 public interface ChannelBuffer extends Comparable<ChannelBuffer> {
 
     /**
      * Returns the number of bytes (octets) this buffer can contain.
+     * 辅助方法用来获取 ChannelBuffer 容量
      */
     int capacity();
 
@@ -216,6 +230,7 @@ public interface ChannelBuffer extends Comparable<ChannelBuffer> {
      * Please note that the behavior of this method is different from that of
      * NIO buffer, which sets the {@code limit} to the {@code capacity} of the
      * buffer.
+     * 辅助方法用来实现清理
      */
     void clear();
 
@@ -225,6 +240,7 @@ public interface ChannelBuffer extends Comparable<ChannelBuffer> {
      * This method is identical to {@code buf.copy(buf.readerIndex(),
      * buf.readableBytes())}. This method does not modify {@code readerIndex} or
      * {@code writerIndex} of this buffer.
+     * 辅助方法用来实现拷贝数据的功能
      */
     ChannelBuffer copy();
 
@@ -233,6 +249,7 @@ public interface ChannelBuffer extends Comparable<ChannelBuffer> {
      * returned buffer or this buffer does not affect each other at all. This
      * method does not modify {@code readerIndex} or {@code writerIndex} of this
      * buffer.
+     * 辅助方法用来实现拷贝数据的功能
      */
     ChannelBuffer copy(int index, int length);
 
@@ -280,6 +297,8 @@ public interface ChannelBuffer extends Comparable<ChannelBuffer> {
     /**
      * Returns the factory which creates a {@link ChannelBuffer} whose type and
      * default {@link java.nio.ByteOrder} are same with this buffer.
+     * 返回创建 ChannelBuffer 的工厂对象，ChannelBufferFactory 中定义了多个
+     * getBuffer() 方法重载来创建 ChannelBuffer，如下图所示，这些 ChannelBufferFactory的实现都是单例的。
      */
     ChannelBufferFactory factory();
 

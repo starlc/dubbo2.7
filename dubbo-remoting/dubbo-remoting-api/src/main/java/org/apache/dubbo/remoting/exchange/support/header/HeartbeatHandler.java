@@ -29,6 +29,12 @@ import org.apache.dubbo.remoting.transport.AbstractChannelHandlerDelegate;
 
 import static org.apache.dubbo.common.constants.CommonConstants.HEARTBEAT_EVENT;
 
+/**
+ * 专门处理心跳消息的 ChannelHandler 实现。
+ * 在 HeartbeatHandler.received() 方法接收心跳请求的时候，会生成相应的心跳响应并返回；
+ * 在收到心跳响应的时候，会打印相应的日志；
+ * 在收到其他类型的消息时，会传递给底层的 ChannelHandler 对象进行处理。
+ */
 public class HeartbeatHandler extends AbstractChannelHandlerDelegate {
 
     private static final Logger logger = LoggerFactory.getLogger(HeartbeatHandler.class);
@@ -57,16 +63,24 @@ public class HeartbeatHandler extends AbstractChannelHandlerDelegate {
 
     @Override
     public void sent(Channel channel, Object message) throws RemotingException {
-        setWriteTimestamp(channel);
+        setWriteTimestamp(channel);// HeartbeatHandler 会将最近一次的读写时间作为附加属性记录到 Channel 中。Channel中的属性有什么作用
         handler.sent(channel, message);
     }
 
+    /**
+     * 处理心跳请求，接收到心跳请求的时候，生成相应的心跳相应并返回
+     * 心跳请求的发起 见NettyClientHandler#userEventTriggered(ChannelHandlerContext, Object)
+     * @param channel channel.
+     * @param message message.
+     * @throws RemotingException
+     */
     @Override
     public void received(Channel channel, Object message) throws RemotingException {
-        setReadTimestamp(channel);
-        if (isHeartbeatRequest(message)) {
+        //在 received() 和 send() 方法中，HeartbeatHandler 会将最近一次的读写时间作为附加属性记录到 Channel 中。
+        setReadTimestamp(channel);// 记录最近的读写事件时间戳
+        if (isHeartbeatRequest(message)) {// 收到心跳请求
             Request req = (Request) message;
-            if (req.isTwoWay()) {
+            if (req.isTwoWay()) {// 返回心跳响应，注意，携带请求的ID
                 Response res = new Response(req.getId(), req.getVersion());
                 res.setEvent(HEARTBEAT_EVENT);
                 channel.send(res);
@@ -81,8 +95,8 @@ public class HeartbeatHandler extends AbstractChannelHandlerDelegate {
             }
             return;
         }
-        if (isHeartbeatResponse(message)) {
-            if (logger.isDebugEnabled()) {
+        if (isHeartbeatResponse(message)) { // 收到心跳响应
+            if (logger.isDebugEnabled()) {// 打印日志(略)
                 logger.debug("Receive heartbeat response in thread " + Thread.currentThread().getName());
             }
             return;

@@ -231,14 +231,25 @@ public class RpcUtils {
         }
     }
 
+    /**
+     * oneway 指的是客户端发送消息后，不需要得到响应。
+     * 所以，对于那些不关心服务端响应的请求，就比较适合使用 oneway 通信
+     * 可以看到发送 oneway 请求的方式是send() 方法，而后面发送 twoway 请求的方式是 request() 方法。
+     * 通过之前的分析我们知道，request() 方法会相应地创建 DefaultFuture 对象以及检测超时的定时任务，
+     * 而 send() 方法则不会创建这些东西，它是直接将 Invocation 包装成 oneway 类型的 Request 发送出去。
+     * @param url
+     * @param inv
+     * @return
+     */
     public static boolean isOneway(URL url, Invocation inv) {
         boolean isOneway;
         String config;
         if ((config = inv.getAttachment(getMethodName(inv) + DOT_SEPARATOR + RETURN_KEY)) != null) {
             isOneway = !Boolean.valueOf(config);
-        } else if ((config = inv.getAttachment(RETURN_KEY)) != null) {
+        } else if ((config = inv.getAttachment(RETURN_KEY)) != null) {// 首先关注的是Invocation中"return"这个附加属性
             isOneway = !Boolean.valueOf(config);
         } else {
+            // 之后关注URL中，调用方法对应的"return"配置
             isOneway = !url.getMethodParameter(getMethodName(inv), RETURN_KEY, true);
         }
         return isOneway;

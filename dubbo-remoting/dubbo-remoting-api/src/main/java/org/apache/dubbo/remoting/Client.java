@@ -24,6 +24,11 @@ import org.apache.dubbo.common.Resetable;
  * <a href="http://en.wikipedia.org/wiki/Client%E2%80%93server_model">Client/Server</a>
  *
  * @see org.apache.dubbo.remoting.Transporter#connect(org.apache.dubbo.common.URL, ChannelHandler)
+ *
+ * 将发起请求的 Endpoint 抽象为客户端（Client），
+ *
+ * Client 和 Server 本身都是 Endpoint，在语义上区分了请求和响应的职责，两者都具备发送的能力，所以都继承了 Endpoint 接口。
+ * Client 和 Server 的主要区别是 Client 只能关联一个 Channel，而 Server 可以接收多个 Client 发起的 Channel 连接。
  */
 public interface Client extends Endpoint, Channel, Resetable, IdleSensible {
 

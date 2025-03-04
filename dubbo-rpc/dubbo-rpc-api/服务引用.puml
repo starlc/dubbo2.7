@@ -1,0 +1,181 @@
+@startuml
+title Dubbo服务引用详细调用链(从RegistryProtocol开始)
+
+participant "RegistryProtocol" as registry
+participant "Registry" as reg
+participant "MigrationInvoker" as migration
+participant "RegistryDirectory" as directory
+participant "RouterChain" as router
+participant "ClusterInvoker" as cluster
+participant "LoadBalance" as loadBalance
+participant "Filter" as filter
+participant "DubboInvoker" as invoker
+
+-> registry: refer()
+activate registry
+
+registry -> registry: getRegistryUrl()
+note right: 获取注册中心URL
+
+registry -> reg: getRegistry()
+activate reg
+
+reg -> reg: register()
+note right
+  1. 注册消费者信息
+  2. 订阅服务提供者
+  3. 订阅配置变更
+end note
+
+reg --> registry
+deactivate reg
+
+registry -> migration: new MigrationInvoker()
+activate migration
+note right
+  1. 创建迁移Invoker
+  2. 支持应用级服务发现
+  3. 接口级服务发现降级
+end note
+
+migration -> directory: new RegistryDirectory()
+activate directory
+
+directory -> directory: subscribe()
+note right
+  1. 订阅providers
+  2. 订阅configurators
+  3. 订阅routers
+end note
+
+directory -> router: buildRouterChain()
+activate router
+note right
+  1. 创建路由链
+  2. 添加标签路由
+  3. 添加条件路由
+  4. 添加脚本路由
+end note
+
+router --> directory
+deactivate router
+
+directory -> directory: notify()
+note right
+  1. 处理providers变更
+  2. 处理configurators变更
+  3. 处理routers变更
+  4. 刷新Invoker列表
+end note
+
+directory --> migration
+deactivate directory
+
+migration -> cluster: join()
+activate cluster
+note right
+  1. 创建集群Invoker
+  2. 容错策略配置:
+     - Failover
+     - Failfast
+     - Failsafe
+     - Failback
+     - Forking
+end note
+
+cluster -> directory: list()
+activate directory
+
+directory -> router: route()
+activate router
+note right
+  1. 路由规则匹配
+  2. 服务路由判断
+  3. 地址过滤
+end note
+
+router --> directory
+deactivate router
+
+directory -> loadBalance: select()
+activate loadBalance
+note right
+  1. 负载均衡选择:
+     - Random
+     - RoundRobin
+     - LeastActive
+     - ConsistentHash
+  2. 权重计算
+  3. 选择节点
+end note
+
+loadBalance --> directory
+deactivate loadBalance
+
+directory --> cluster
+deactivate directory
+
+cluster -> filter: buildInvokerChain()
+activate filter
+note right
+  1. 构建过滤器链:
+     - ConsumerContextFilter
+     - FutureFilter
+     - MonitorFilter
+     - TimeoutFilter
+  2. 请求过滤处理
+end note
+
+filter -> invoker: invoke()
+activate invoker
+note right
+  1. 远程调用处理
+  2. 请求编码
+  3. 网络传输
+  4. 响应解码
+end note
+
+invoker --> filter
+deactivate invoker
+
+filter --> cluster
+deactivate filter
+
+cluster --> migration
+deactivate cluster
+
+migration --> registry
+deactivate migration
+
+<-- registry
+deactivate registry
+
+note right of directory
+  Directory职责:
+  1. 动态服务目录
+  2. 服务变更通知
+  3. 服务列表维护
+end note
+
+note right of router
+  Router职责:
+  1. 服务路由规则
+  2. 地址过滤
+  3. 黑白名单
+end note
+
+note right of loadBalance
+  LoadBalance职责:
+  1. 负载均衡策略
+  2. 权重计算
+  3. 服务选择
+end note
+
+note right of filter
+  Filter职责:
+  1. 调用拦截
+  2. 上下文处理
+  3. 监控统计
+end note
+
+@enduml

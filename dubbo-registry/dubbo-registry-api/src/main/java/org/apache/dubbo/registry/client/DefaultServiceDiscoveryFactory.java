@@ -36,7 +36,7 @@ public class DefaultServiceDiscoveryFactory extends AbstractServiceDiscoveryFact
 
     /**
      * Create the {@link ServiceDiscovery} by {@link URL#getProtocol() the protocol} from {@link URL connection URL}
-     *
+     * 使用 Dubbo SPI 机制获取对应的 ServiceDiscovery 对象
      * @param registryURL
      * @return
      */

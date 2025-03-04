@@ -24,7 +24,7 @@ import java.util.List;
 
 /**
  * Used to build metadata service url from ServiceInstance.
- *
+ * MetadataServiceURLBuilder 接口中创建 MetadataService 服务对应的 URL
  * @since 2.7.5
  */
 @SPI

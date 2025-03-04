@@ -76,6 +76,7 @@ public abstract class AbstractProxyProtocol extends AbstractProtocol {
     @Override
     @SuppressWarnings("unchecked")
     public <T> Exporter<T> export(final Invoker<T> invoker) throws RpcException {
+        // 首先查询exporterMap集合
         final String uri = serviceKey(invoker.getUrl());
         Exporter<T> exporter = (Exporter<T>) exporterMap.getExport(uri);
         if (exporter != null) {
@@ -84,7 +85,9 @@ public abstract class AbstractProxyProtocol extends AbstractProtocol {
                 return exporter;
             }
         }
+        // 通过ProxyFactory创建代理类，将Invoker封装成业务接口的代理类
         final Runnable runnable = doExport(proxyFactory.getProxy(invoker, true), invoker.getInterface(), invoker.getUrl());
+        // doExport()方法返回的Runnable是一个回调，其中会销毁底层的Server，将会在unexport()方法中调用该Runnable
         exporter = new AbstractExporter<T>(invoker) {
             @Override
             public void afterUnExport() {
@@ -137,7 +140,7 @@ public abstract class AbstractProxyProtocol extends AbstractProtocol {
                 invokers.remove(this);
             }
         };
-        invokers.add(invoker);
+        invokers.add(invoker);// 将Invoker添加到invokers集合中
         return invoker;
     }
 

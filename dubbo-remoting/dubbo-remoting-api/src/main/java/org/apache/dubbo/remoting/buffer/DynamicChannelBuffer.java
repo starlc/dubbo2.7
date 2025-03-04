@@ -22,10 +22,31 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 
+/**
+ * DynamicChannelBuffer 可以认为是其他 ChannelBuffer 的装饰器，
+ * 它可以为其他 ChannelBuffer 添加动态扩展容量的功能。DynamicChannelBuffer 中有两个核心字段：
+ *
+ * buffer（ChannelBuffer 类型），是被修饰的 ChannelBuffer，默认为 HeapChannelBuffer。
+ *
+ * factory（ChannelBufferFactory 类型），用于创建被修饰的 HeapChannelBuffer 对象的 ChannelBufferFactory 工厂，默认为 HeapChannelBufferFactory。
+ *
+ * DynamicChannelBuffer 需要关注的是 ensureWritableBytes() 方法，该方法实现了动态扩容的功能，
+ * 在每次写入数据之前，都需要调用该方法确定当前可用空间是否足够
+ *
+ * - 支持自动扩容
+ * - 初始容量可配置
+ * - 适合大小不确定的数据
+ */
 public class DynamicChannelBuffer extends AbstractChannelBuffer {
 
+    /**
+     * 用于创建被修饰的 HeapChannelBuffer 对象的 ChannelBufferFactory 工厂，默认为 HeapChannelBufferFactory
+     */
     private final ChannelBufferFactory factory;
 
+    /**
+     * 是被修饰的 ChannelBuffer，默认为 HeapChannelBuffer
+     */
     private ChannelBuffer buffer;
 
     public DynamicChannelBuffer(int estimatedLength) {
@@ -43,6 +64,16 @@ public class DynamicChannelBuffer extends AbstractChannelBuffer {
         buffer = factory.getBuffer(estimatedLength);
     }
 
+    /**
+     * 该方法实现了动态扩容的功能，在每次写入数据之前，都需要调用该方法确定当前可用空间是否足够
+     * writeByte系列方法调用，再调用子类
+     *
+     * ensureWritableBytes() 方法如果检测到底层 ChannelBuffer 对象的空间不足，
+     * 则会创建一个新的 ChannelBuffer（空间扩大为原来的两倍），
+     * 然后将原来 ChannelBuffer 中的数据拷贝到新 ChannelBuffer 中，
+     * 最后将 buffer 字段指向新 ChannelBuffer 对象，完成整个扩容操作。
+     * @param minWritableBytes the expected minimum number of writable bytes
+     */
     @Override
     public void ensureWritableBytes(int minWritableBytes) {
         if (minWritableBytes <= writableBytes()) {

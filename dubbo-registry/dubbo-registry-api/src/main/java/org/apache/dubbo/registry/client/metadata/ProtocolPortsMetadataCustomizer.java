@@ -35,19 +35,27 @@ import static org.apache.dubbo.registry.client.metadata.ServiceInstanceMetadataU
  */
 public class ProtocolPortsMetadataCustomizer implements ServiceInstanceCustomizer {
 
+    /**
+     * .filter(url -> !MetadataService.class.getName().equals(url.getServiceInterface()))
+     * 逻辑被去掉了
+     * @param serviceInstance {@link ServiceInstance the service instance}
+     */
     @Override
     public void customize(ServiceInstance serviceInstance) {
         WritableMetadataService writableMetadataService = WritableMetadataService.getDefaultExtension();
 
         Map<String, Integer> protocols = new HashMap<>();
+        // 先获取将当前ServiceInstance发布的各种Protocol对应的URL
         writableMetadataService.getExportedURLs()
                 .stream()
                 .map(URL::valueOf)
                 .forEach(url -> {
                     // TODO, same protocol listen on different ports will override with each other.
+                    // 记录Protocol与port之间的映射关系
                     protocols.put(url.getProtocol(), url.getPort());
                 });
 
+        // 将protocols这个Map中的映射关系转换成Endpoint对象，然后再序列化成JSON字符串，并设置到该ServiceInstance的metadata集合中
         setEndpoints(serviceInstance, protocols);
     }
 }

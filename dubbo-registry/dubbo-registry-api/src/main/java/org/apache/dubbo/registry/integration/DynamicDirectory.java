@@ -59,21 +59,49 @@ import static org.apache.dubbo.remoting.Constants.CHECK_KEY;
 
 /**
  * RegistryDirectory
+ * 是一个动态的 Directory 实现，实现了 NotifyListener 接口，
+ * 当注册中心的服务配置发生变化时， RegistryDirectory 会收到变更通知，
+ * 然后RegistryDirectory 会根据注册中心推送的通知，动态增删底层 Invoker 集合。
  */
 public abstract class DynamicDirectory<T> extends AbstractDirectory<T> implements NotifyListener {
 
     private static final Logger logger = LoggerFactory.getLogger(DynamicDirectory.class);
 
+    /**
+     * 集群策略适配器，这里通过 Dubbo SPI 方式（即 ExtensionLoader.getAdaptiveExtension() 方法）动态创建适配器实例。
+     */
     protected static final Cluster CLUSTER = ExtensionLoader.getExtensionLoader(Cluster.class).getAdaptiveExtension();
 
+    /**
+     * 路由工厂适配器，也是通过 Dubbo SPI 动态创建的适配器实例。
+     * routerFactory 字段和 cluster 字段都是静态字段，多个 RegistryDirectory 对象通用。
+     */
     protected static final RouterFactory ROUTER_FACTORY = ExtensionLoader.getExtensionLoader(RouterFactory.class)
             .getAdaptiveExtension();
 
+    /**
+     * 服务对应的 ServiceKey，默认是 {interface}:[group]:[version] 三部分构成
+     */
     protected final String serviceKey; // Initialization at construction time, assertion not null
+    /**
+     * 服务接口类型，例如，org.apache.dubbo.demo.DemoService。
+     */
     protected final Class<T> serviceType; // Initialization at construction time, assertion not null
+    /**
+     * 只保留 Consumer 属性的 URL，也就是由 queryMap 集合重新生成的 URL。
+     */
     protected final URL directoryUrl; // Initialization at construction time, assertion not null, and always assign non null value
+    /**
+     * 是否引用多个服务组。
+     */
     protected final boolean multiGroup;
+    /**
+     * 使用的 Protocol 实现。
+     */
     protected Protocol protocol; // Initialization at the time of injection, the assertion is not null
+    /**
+     * 使用的注册中心实现。
+     */
     protected Registry registry; // Initialization at the time of injection, the assertion is not null
     protected volatile boolean forbidden = false;
     protected boolean shouldRegister;
@@ -88,9 +116,13 @@ public abstract class DynamicDirectory<T> extends AbstractDirectory<T> implement
      * Priority: override>-D>consumer>provider
      * Rule one: for a certain provider <ip:port,timeout=100>
      * Rule two: for all providers <* ,timeout=5000>
+     * 动态更新的配置信息，配置的具体内容在后面的分析中会介绍到。
      */
     protected volatile List<Configurator> configurators; // The initial value is null and the midway may be assigned to null, please use the local variable reference
 
+    /**
+     * 动态更新的 Invoker 集合。
+     */
     protected volatile List<Invoker<T>> invokers;
     // Set<invokerUrls> cache invokeUrls to invokers mapping.
 
@@ -102,6 +134,10 @@ public abstract class DynamicDirectory<T> extends AbstractDirectory<T> implement
     private final boolean shouldFailFast;
 
     public DynamicDirectory(Class<T> serviceType, URL url) {
+        // 传入的url参数是注册中心的URL，例如，zookeeper://127.0.0.1:2181/org.apache.dubbo.registry.RegistryService?
+        // ...，其中refer参数包含了Consumer信息，
+        // 例如，refer=application=dubbo-demo-api-consumer&dubbo=2.0.2&interface=
+        // org.apache.dubbo.demo.DemoService&pid=13423&register.ip=192.168.124.3&side=consumer(URLDecode之后的值)
         super(url, true);
 
         if (serviceType == null) {
@@ -118,6 +154,7 @@ public abstract class DynamicDirectory<T> extends AbstractDirectory<T> implement
         this.serviceType = serviceType;
         this.serviceKey = super.getConsumerUrl().getServiceKey();
 
+        // 将queryMap中的KV作为参数，重新构造URL，其中的protocol和path部分不变
         this.overrideDirectoryUrl = this.directoryUrl = turnRegistryUrlToConsumerUrl(url);
         String group = directoryUrl.getParameter(GROUP_KEY, "");
         this.multiGroup = group != null && (ANY_VALUE.equals(group) || group.contains(","));
@@ -129,6 +166,11 @@ public abstract class DynamicDirectory<T> extends AbstractDirectory<T> implement
         this.serviceListener = instanceListener;
     }
 
+    /**
+     * 把注册的URL转换成消费端URL
+     * @param url
+     * @return
+     */
     private URL turnRegistryUrlToConsumerUrl(URL url) {
         return URLBuilder.from(url)
                 .setHost(queryMap.get(REGISTER_IP_KEY) == null ? url.getHost() : queryMap.get(REGISTER_IP_KEY))
@@ -160,6 +202,7 @@ public abstract class DynamicDirectory<T> extends AbstractDirectory<T> implement
 
     public void subscribe(URL url) {
         setConsumerUrl(url);
+        // 完成订阅操作，注册中心的相关操作在前文已经介绍过了，这里不再重复
         registry.subscribe(url, this);
     }
 
@@ -168,8 +211,16 @@ public abstract class DynamicDirectory<T> extends AbstractDirectory<T> implement
         registry.unsubscribe(url, this);
     }
 
+    /**
+     * RegistryDirectory 中另外一个核心方法—— doList() 方法，
+     * 该方法是 AbstractDirectory 留给其子类实现的一个方法，
+     * 也是通过 Directory 接口获取 Invoker 集合的核心所在，
+     * @param invocation
+     * @return
+     */
     @Override
     public List<Invoker<T>> doList(Invocation invocation) {
+        // 检测forbidden字段，当该字段在refreshInvoker()过程中设置为true时，表示无Provider可用，直接抛出异常
         if (forbidden && shouldFailFast) {
             // 1. No service provider 2. Service providers are disabled
             throw new RpcException(RpcException.FORBIDDEN_EXCEPTION, "No provider available from registry " +
@@ -179,12 +230,15 @@ public abstract class DynamicDirectory<T> extends AbstractDirectory<T> implement
         }
 
         if (multiGroup) {
+            // multiGroup为true时的特殊处理，在refreshInvoker()方法中针对multiGroup为true的场景，
+            // 已经使用Router进行了筛选，所以这里直接返回接口
             return this.invokers == null ? Collections.emptyList() : this.invokers;
         }
 
         List<Invoker<T>> invokers = null;
         try {
             // Get invokers from cache, only runtime routers will be executed.
+            // 通过RouterChain.route()方法筛选Invoker集合，最终得到符合路由条件的Invoker集合
             invokers = routerChain.route(getConsumerUrl(), invocation);
         } catch (Throwable t) {
             logger.error("Failed to execute router: " + getUrl() + ", cause: " + t.getMessage(), t);

@@ -51,6 +51,7 @@ public class ServiceInstanceMetadataCustomizer implements ServiceInstanceCustomi
         Map<String, String> allParams = new HashMap<>(serviceInfo.getUrl().getParameters());
 
         // load instance params users want to load.
+        //加载用户想要加载的实例参数
         // TODO, duplicate logic with that in ApplicationConfig
         Set<InfraAdapter> adapters = ExtensionLoader.getExtensionLoader(InfraAdapter.class).getSupportedExtensionInstances();
         if (CollectionUtils.isNotEmpty(adapters)) {

@@ -31,6 +31,13 @@ import org.apache.dubbo.remoting.transport.ChannelHandlerDelegate;
 
 import java.util.concurrent.ExecutorService;
 
+/**
+ * WrappedChannelHandler 仅仅是封装了另一个 ChannelHandler 对象
+ * 其子类主要是决定了 Dubbo 以何种线程模型处理收到的事件和消息，就是所谓的“消息派发机制”，
+ * 与前面介绍的 ThreadPool 有紧密的联系。
+ *
+ * 默认到这一层的handler有关的方法都是IO线程在执行，其子类将对应的事件放到线程池中执行
+ */
 public class WrappedChannelHandler implements ChannelHandlerDelegate {
 
     protected static final Logger logger = LoggerFactory.getLogger(WrappedChannelHandler.class);
@@ -102,25 +109,25 @@ public class WrappedChannelHandler implements ChannelHandlerDelegate {
      * Currently, this method is mainly customized to facilitate the thread model on consumer side.
      * 1. Use ThreadlessExecutor, aka., delegate callback directly to the thread initiating the call.
      * 2. Use shared executor to execute the callback.
-     *
+     *方法对响应做了特殊处理：如果请求在发送的时候指定了关联的线程池，在收到对应的响应消息的时候，会优先根据请求的 ID 查找请求关联的线程池处理响应。
      * @param msg
      * @return
      */
     public ExecutorService getPreferredExecutorService(Object msg) {
         if (msg instanceof Response) {
             Response response = (Response) msg;
-            DefaultFuture responseFuture = DefaultFuture.getFuture(response.getId());
+            DefaultFuture responseFuture = DefaultFuture.getFuture(response.getId());// 获取请求关联的DefaultFuture
             // a typical scenario is the response returned after timeout, the timeout response may has completed the future
             if (responseFuture == null) {
                 return getSharedExecutorService();
-            } else {
+            } else { // 如果请求关联了线程池，则会获取相关的线程来处理响应
                 ExecutorService executor = responseFuture.getExecutor();
                 if (executor == null || executor.isShutdown()) {
                     executor = getSharedExecutorService();
                 }
                 return executor;
             }
-        } else {
+        } else {// 如果是请求消息，则直接使用公共的线程池处理
             return getSharedExecutorService();
         }
     }
@@ -142,6 +149,7 @@ public class WrappedChannelHandler implements ChannelHandlerDelegate {
 
     @Deprecated
     public ExecutorService getExecutorService() {
+        //按照当前端点（Server/Client）的 URL 从 ExecutorRepository 中获取相应的公共线程池。
         return getSharedExecutorService();
     }
 

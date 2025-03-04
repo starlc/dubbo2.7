@@ -35,11 +35,13 @@ public class MetadataServiceURLParamsMetadataCustomizer implements ServiceInstan
     @Override
     public void customize(ServiceInstance serviceInstance) {
 
+        // 获取ServiceInstance对象的metadata字段
         Map<String, String> metadata = serviceInstance.getMetadata();
-
+        // 生成要添加到metadata集合的KV值
         String propertyName = resolveMetadataPropertyName(serviceInstance);
         String propertyValue = resolveMetadataPropertyValue(serviceInstance);
 
+        // 判断待添加的KV值是否为空
         if (!isBlank(propertyName) && !isBlank(propertyValue)) {
             metadata.put(propertyName, propertyValue);
         }

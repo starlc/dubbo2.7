@@ -59,6 +59,9 @@ import static org.apache.dubbo.rpc.Constants.GENERIC_KEY;
  * The {@link WritableMetadataService} implementation stores the metadata of Dubbo services in memory locally when they
  * exported. It is used by server (provider).
  *
+ * InMemoryWritableMetadataService 对 getExportedURLs()、getSubscribedURLs()
+ * 以及 getServiceDefinition() 方法的实现，就是查询上述三个集合的数据；
+ * 对 (un)exportURL()、(un)subscribeURL() 和 publishServiceDefinition() 方法的实现，就是增删上述三个集合的数据。
  * @see MetadataService
  * @see WritableMetadataService
  * @since 2.7.5
@@ -74,6 +77,8 @@ public class InMemoryWritableMetadataService implements WritableMetadataService 
     /**
      * All exported {@link URL urls} {@link Map} whose key is the return value of {@link URL#getServiceKey()} method
      * and value is the {@link SortedSet sorted set} of the {@link URL URLs}
+     * 用于记录当前 ServiceInstance 发布的 URL 集合，
+     * 其中 Key 是 ServiceKey（即 interface、group 和 version 三部分构成），Value 是对应的 URL 集合。
      */
     ConcurrentNavigableMap<String, SortedSet<URL>> exportedServiceURLs = new ConcurrentSkipListMap<>();
     ConcurrentMap<String, MetadataInfo> metadataInfos;
@@ -87,9 +92,17 @@ public class InMemoryWritableMetadataService implements WritableMetadataService 
      * The subscribed {@link URL urls} {@link Map} of {@link MetadataService},
      * whose key is the return value of {@link URL#getServiceKey()} method and value is
      * the {@link SortedSet sorted set} of the {@link URL URLs}
+     * 用于记录当前 ServiceInstance 引用的 URL 集合，
+     * 其中 Key 是 ServiceKey（即 interface、group 和 version 三部分构成），
+     * Value 是对应的 URL 集合。
      */
     ConcurrentNavigableMap<String, SortedSet<URL>> subscribedServiceURLs = new ConcurrentSkipListMap<>();
 
+    /**
+     * 用于记录当前 ServiceInstance 发布的 ServiceDefinition 信息，
+     * 其中 Key 为 Provider URL 的ServiceKey，
+     * Value 为对应的 ServiceDefinition 对象序列化之后的 JSON 字符串。
+     */
     ConcurrentNavigableMap<String, String> serviceDefinitions = new ConcurrentSkipListMap<>();
 
     public InMemoryWritableMetadataService() {
@@ -168,11 +181,15 @@ public class InMemoryWritableMetadataService implements WritableMetadataService 
     public void publishServiceDefinition(URL providerUrl) {
         try {
             if (!ProtocolUtils.isGeneric(providerUrl.getParameter(GENERIC_KEY))) {
+                // 获取服务接口
                 String interfaceName = providerUrl.getParameter(INTERFACE_KEY);
                 if (StringUtils.isNotEmpty(interfaceName)) {
                     Class interfaceClass = Class.forName(interfaceName);
+                    // 创建服务接口对应的ServiceDefinition对象
                     ServiceDefinition serviceDefinition = ServiceDefinitionBuilder.build(interfaceClass);
+                    // 将ServiceDefinition对象序列化为JSON对象
                     String data = JSON.toJSONString(serviceDefinition);
+                    // 将ServiceDefinition对象序列化之后的JSON字符串记录到serviceDefinitions集合
                     serviceDefinitions.put(providerUrl.getServiceKey(), data);
                     return;
                 }

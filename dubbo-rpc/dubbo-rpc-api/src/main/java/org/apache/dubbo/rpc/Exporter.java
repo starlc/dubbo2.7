@@ -18,7 +18,9 @@ package org.apache.dubbo.rpc;
 
 /**
  * Exporter. (API/SPI, Prototype, ThreadSafe)
- *
+ * Exporter 暴露 Invoker 的实现，说白了，就是让 Provider 能够根据请求的各种信息，找到对应的 Invoker。
+ * 我们可以维护一个 Map，其中 Key 可以根据请求中的信息构建，Value 为封装相应服务 Bean 的 Exporter 对象，
+ * 这样就可以实现上述服务发布的要求了
  * @see org.apache.dubbo.rpc.Protocol#export(Invoker)
  * @see org.apache.dubbo.rpc.ExporterListener
  * @see org.apache.dubbo.rpc.protocol.AbstractExporter
@@ -27,7 +29,7 @@ public interface Exporter<T> {
 
     /**
      * get invoker.
-     *
+     * 获取底层封装的Invoker对象
      * @return invoker
      */
     Invoker<T> getInvoker();
@@ -38,6 +40,7 @@ public interface Exporter<T> {
      * <code>
      * getInvoker().destroy();
      * </code>
+     * 取消发布底层的Invoker对象
      */
     void unexport();
 

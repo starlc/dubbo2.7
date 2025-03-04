@@ -24,7 +24,22 @@ import org.apache.dubbo.remoting.Endpoint;
 import org.apache.dubbo.remoting.RemotingException;
 
 /**
- * AbstractPeer
+ * 是 Dubbo 远程通信模块的核心抽象类，它有以下几个重要作用：
+ * 1. 双重角色实现 ：
+ * 作为通信端点和消息处理器的统一抽象
+ * 2.状态管理
+ * - 管理通信端点的生命周期
+ * - 控制关闭过程
+ * - 保证线程安全
+ *
+ * AbstractPeer同时实现了 Endpoint 接口和 ChannelHandler 接口
+ * AbstractPeer 中有四个字段：一个是表示该端点自身的 URL 类型的字段，
+ * 还有两个 Boolean 类型的字段（closing 和 closed）用来记录当前端点的状态，
+ * 这三个字段都与 Endpoint 接口相关；
+ * 第四个字段指向了一个 ChannelHandler 对象，AbstractPeer 对 ChannelHandler 接口的所有实现，
+ * 都是委托给了这个 ChannelHandler 对象。
+ * 从上面的继承关系图中，我们可以得出这样一个结论：
+ * AbstractChannel、AbstractServer、AbstractClient 都是要关联一个 ChannelHandler 对象的。
  */
 public abstract class AbstractPeer implements Endpoint, ChannelHandler {
 

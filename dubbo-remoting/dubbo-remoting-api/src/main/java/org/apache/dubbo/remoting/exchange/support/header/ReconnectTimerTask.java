@@ -24,6 +24,7 @@ import org.apache.dubbo.remoting.Client;
 
 /**
  * ReconnectTimerTask
+ * 重连任务
  */
 public class ReconnectTimerTask extends AbstractTimerTask {
 
@@ -43,6 +44,7 @@ public class ReconnectTimerTask extends AbstractTimerTask {
             Long now = now();
 
             // Rely on reconnect timer to reconnect when AbstractClient.doConnect fails to init the connection
+            //会检测待处理 Channel 的连接状态，以及读操作的空闲时间，对于断开或是空闲时间较长的 Channel 进行重连
             if (!channel.isConnected()) {
                 try {
                     logger.info("Initial connection to " + channel);

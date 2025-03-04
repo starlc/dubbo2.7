@@ -27,18 +27,34 @@ import org.apache.dubbo.remoting.transport.DecodeHandler;
 
 /**
  * DefaultMessenger
- *
+ *对于上层来说，Exchange 层的入口是 Exchangers 这个门面类，
+ * 其中提供了多个 bind() 以及 connect() 方法的重载，
+ * 这些重载方法最终会通过 SPI 机制，获取 Exchanger 接口的扩展实现，
  *
  */
 public class HeaderExchanger implements Exchanger {
 
     public static final String NAME = "header";
 
+    /**
+     * connect() 方法创建的是 HeaderExchangeClient 对象
+     * @param url
+     * @param handler
+     * @return
+     * @throws RemotingException
+     */
     @Override
     public ExchangeClient connect(URL url, ExchangeHandler handler) throws RemotingException {
         return new HeaderExchangeClient(Transporters.connect(url, new DecodeHandler(new HeaderExchangeHandler(handler))), true);
     }
 
+    /**
+     * bind() 方法创建的是 HeaderExchangeServer 对象
+     * @param url
+     * @param handler
+     * @return
+     * @throws RemotingException
+     */
     @Override
     public ExchangeServer bind(URL url, ExchangeHandler handler) throws RemotingException {
         return new HeaderExchangeServer(Transporters.bind(url, new DecodeHandler(new HeaderExchangeHandler(handler))));

@@ -196,33 +196,44 @@ public class RegistryProtocol implements Protocol {
 
     @Override
     public <T> Exporter<T> export(final Invoker<T> originInvoker) throws RpcException {
+        // 将"registry://"协议转换成"zookeeper://"协议
         URL registryUrl = getRegistryUrl(originInvoker);
         // url to export locally
+        // 获取export参数，其中存储了一个"dubbo://"协议的ProviderURL
         URL providerUrl = getProviderUrl(originInvoker);
 
         // Subscribe the override data
         // FIXME When the provider subscribes, it will affect the scene : a certain JVM exposes the service and call
         //  the same service. Because the subscribed is cached key with the name of the service, it causes the
         //  subscription information to cover.
+        // 获取要监听的配置目录，这里会在ProviderURL的基础上添加category=configurators参数，并封装成对OverrideListener记录到overrideListeners集合中
         final URL overrideSubscribeUrl = getSubscribedOverrideUrl(providerUrl);
         final OverrideListener overrideSubscribeListener = new OverrideListener(overrideSubscribeUrl, originInvoker);
         overrideListeners.put(overrideSubscribeUrl, overrideSubscribeListener);
 
+        // 初始化时会检测一次Override配置，重写ProviderURL
         providerUrl = overrideUrlWithConfig(providerUrl, overrideSubscribeListener);
         // export invoker
+        // 导出服务，底层会通过执行DubboProtocol.export()方法，启动对应的Server
         final ExporterChangeableWrapper<T> exporter = doLocalExport(originInvoker, providerUrl);
 
         // url to registry
+        // 根据RegistryURL获取对应的注册中心Registry对象，其中会依赖之前课时介绍的RegistryFactory
         final Registry registry = getRegistry(originInvoker);
+        // 获取将要发布到注册中心上的Provider URL，其中会删除一些多余的参数信息
         final URL registeredProviderUrl = getUrlToRegistry(providerUrl, registryUrl);
 
         // decide if we need to delay publish
+        // 根据register参数值决定是否注册服务
         boolean register = providerUrl.getParameter(REGISTER_KEY, true);
         if (register) {
+            // 调用Registry.register()方法将registeredProviderUrl发布到注册中心
+            //注册 Dubbo 服务。在 register() 方法中，调用 ZookeeperRegistry.register() 方法向 Zookeeper 注册服务。
             registry.register(registeredProviderUrl);
         }
 
         // register stated url on provider model
+        // 将Provider相关信息记录到的ProviderModel中
         registerStatedUrl(registryUrl, registeredProviderUrl, register);
 
 
@@ -230,8 +241,10 @@ public class RegistryProtocol implements Protocol {
         exporter.setSubscribeUrl(overrideSubscribeUrl);
 
         // Deprecated! Subscribe to override rules in 2.6.x or before.
+        // 向注册中心进行订阅override数据，主要是监听该服务的configurators节点
         registry.subscribe(overrideSubscribeUrl, overrideSubscribeListener);
 
+        // 触发RegistryProtocolListener监听器
         notifyExport(exporter);
         //Ensure that a new exporter instance is returned every time export
         return new DestroyableExporter<>(exporter);
@@ -254,6 +267,13 @@ public class RegistryProtocol implements Protocol {
         return serviceConfigurationListener.overrideUrl(providerUrl);
     }
 
+    /**
+     * 发布 Dubbo 服务。在 doLocalExport() 方法中调用 DubboProtocol.export() 方法启动 Provider 端底层 Server。
+     * @param originInvoker
+     * @param providerUrl
+     * @return
+     * @param <T>
+     */
     @SuppressWarnings("unchecked")
     private <T> ExporterChangeableWrapper<T> doLocalExport(final Invoker<T> originInvoker, URL providerUrl) {
         String key = getCacheKey(originInvoker);
@@ -365,6 +385,7 @@ public class RegistryProtocol implements Protocol {
 
     protected Registry getRegistry(URL url) {
         try {
+            // 获取Registry实例，这里的RegistryFactory对象是通过Dubbo SPI的自动装载机制注入的
             return registryFactory.getRegistry(url);
         } catch (Throwable t) {
             LOGGER.error(t.getMessage(), t);
@@ -457,28 +478,54 @@ public class RegistryProtocol implements Protocol {
         return key;
     }
 
+    /**
+     * 在 RegistryProtocol.refer() 方法中，会先根据 URL 获取注册中心的 URL，再调用 doRefer 方法生成 Invoker，
+     * 在 refer() 方法中会使用 MergeableCluster 处理多 group 引用的场景。
+     * @param type Service class
+     * @param url  URL address for the remote service
+     * @return
+     * @param <T>
+     * @throws RpcException
+     */
     @Override
     @SuppressWarnings("unchecked")
     public <T> Invoker<T> refer(Class<T> type, URL url) throws RpcException {
-        url = getRegistryUrl(url);
+        url = getRegistryUrl(url);// 从URL中获取注册中心的URL
+        // 获取Registry实例，这里的RegistryFactory对象是通过Dubbo SPI的自动装载机制注入的
         Registry registry = getRegistry(url);
         if (RegistryService.class.equals(type)) {
             return proxyFactory.getInvoker((T) registry, type, url);
         }
 
         // group="a,b" or group="*"
+        // 从注册中心URL的refer参数中获取此次服务引用的一些参数，其中就包括group
         Map<String, String> qs = StringUtils.parseQueryString(url.getParameterAndDecoded(REFER_KEY));
         String group = qs.get(GROUP_KEY);
         if (group != null && group.length() > 0) {
             if ((COMMA_SPLIT_PATTERN.split(group)).length > 1 || "*".equals(group)) {
+                // 如果此次可以引用多个group的服务，则Cluser实现使用MergeableCluster实现，
+                // 这里的getMergeableCluster()方法就会通过Dubbo SPI方式找到MergeableCluster实例
                 return doRefer(Cluster.getCluster(MergeableCluster.NAME), registry, type, url, qs);
             }
         }
 
         Cluster cluster = Cluster.getCluster(qs.get(CLUSTER_KEY));
+        // 如果没有group参数或是只指定了一个group，则通过Cluster适配器选择Cluster实现
         return doRefer(cluster, registry, type, url, qs);
     }
 
+    /**
+     * 在 doRefer() 方法中，
+     * 首先会根据 URL 初始化 RegistryDirectory 实例，然后生成 Subscribe URL 并进行注册，
+     * 之后会通过 Registry 订阅服务，最后通过 Cluster 将多个 Invoker 合并成一个 Invoker 返回给上层
+     * @param cluster
+     * @param registry
+     * @param type
+     * @param url
+     * @param parameters
+     * @return
+     * @param <T>
+     */
     protected <T> Invoker<T> doRefer(Cluster cluster, Registry registry, Class<T> type, URL url, Map<String, String> parameters) {
         URL consumerUrl = new URL(CONSUMER_PROTOCOL, parameters.remove(REGISTER_IP_KEY), 0, type.getName(), parameters);
         ClusterInvoker<T> migrationInvoker = getMigrationInvoker(this, cluster, registry, type, url, consumerUrl);
@@ -491,11 +538,14 @@ public class RegistryProtocol implements Protocol {
     }
 
     protected <T> Invoker<T> interceptInvoker(ClusterInvoker<T> invoker, URL url, URL consumerUrl) {
+        // 根据URL中的registry.protocol.listener参数加载相应的监听器实现
         List<RegistryProtocolListener> listeners = findRegistryProtocolListeners(url);
         if (CollectionUtils.isEmpty(listeners)) {
             return invoker;
         }
 
+        // 为了方便在监听器中回调，这里将此次引用使用到的Directory对象、Cluster对象、Invoker对象
+        // 以及SubscribeUrl 封装到一个RegistryInvokerWrapper中，传递给监听器
         for (RegistryProtocolListener listener : listeners) {
             listener.onRefer(this, invoker, consumerUrl);
         }
@@ -514,6 +564,8 @@ public class RegistryProtocol implements Protocol {
     }
 
     protected <T> ClusterInvoker<T> doCreateInvoker(DynamicDirectory<T> directory, Cluster cluster, Registry registry, Class<T> type) {
+        //到这里才算是真正执行服务到处
+        // 1. 创建 RegistryDirectory
         directory.setRegistry(registry);
         directory.setProtocol(protocol);
         // all attributes of REFER_KEY
@@ -521,11 +573,13 @@ public class RegistryProtocol implements Protocol {
         URL urlToRegistry = new URL(CONSUMER_PROTOCOL, parameters.remove(REGISTER_IP_KEY), 0, type.getName(), parameters);
         if (directory.isShouldRegister()) {
             directory.setRegisteredConsumerUrl(urlToRegistry);
-            registry.register(directory.getRegisteredConsumerUrl());
+            registry.register(directory.getRegisteredConsumerUrl());//consumer://192.168.145.1/org.apache.dubbo.demo.DemoService?application=dubbo-demo-annotation-consumer&category=consumers&check=false&dubbo=2.0.2&init=false&interface=org.apache.dubbo.demo.DemoService&methods=sayHello,sayHelloAsync&pid=4992&side=consumer&sticky=false&timestamp=1740674826918
         }
+        // 2. 订阅服务
         directory.buildRouterChain(urlToRegistry);
-        directory.subscribe(toSubscribeUrl(urlToRegistry));
+        directory.subscribe(toSubscribeUrl(urlToRegistry));//consumer://192.168.145.1/org.apache.dubbo.demo.DemoService?application=dubbo-demo-annotation-consumer&category=providers,configurators,routers&dubbo=2.0.2&init=false&interface=org.apache.dubbo.demo.DemoService&methods=sayHello,sayHelloAsync&pid=4992&side=consumer&sticky=false&timestamp=1740674826918
 
+        // 3. 创建 Invoker
         return (ClusterInvoker<T>) cluster.join(directory);
     }
 

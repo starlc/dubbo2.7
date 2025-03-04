@@ -47,6 +47,7 @@ public class JettyHttpServer extends AbstractHttpServer {
     private URL url;
 
     public JettyHttpServer(URL url, final HttpHandler handler) {
+        // 初始化AbstractHttpServer中的url字段和handler字段
         super(url, handler);
         this.url = url;
         // TODO we should leave this setting to slf4j
@@ -54,16 +55,19 @@ public class JettyHttpServer extends AbstractHttpServer {
         Log.setLog(new StdErrLog());
         Log.getLog().setDebugEnabled(false);
 
+        // 添加HttpHandler
         DispatcherServlet.addHttpHandler(url.getParameter(Constants.BIND_PORT_KEY, url.getPort()), handler);
 
+        // 创建线程池
         int threads = url.getParameter(THREADS_KEY, DEFAULT_THREADS);
         QueuedThreadPool threadPool = new QueuedThreadPool();
         threadPool.setDaemon(true);
         threadPool.setMaxThreads(threads);
         threadPool.setMinThreads(threads);
 
+        // 创建Jetty Server
         server = new Server(threadPool);
-
+        // 创建ServerConnector，并指定绑定的ip和port
         ServerConnector connector = new ServerConnector(server);
 
         String bindIp = url.getParameter(Constants.BIND_IP_KEY, url.getHost());
@@ -73,7 +77,7 @@ public class JettyHttpServer extends AbstractHttpServer {
         connector.setPort(url.getParameter(Constants.BIND_PORT_KEY, url.getPort()));
 
         server.addConnector(connector);
-
+        // 创建ServletHandler并与Jetty Server关联，由DispatcherServlet处理全部的请求
         ServletHandler servletHandler = new ServletHandler();
         ServletHolder servletHolder = servletHandler.addServletWithMapping(DispatcherServlet.class, "/*");
         servletHolder.setInitOrder(2);
@@ -81,6 +85,7 @@ public class JettyHttpServer extends AbstractHttpServer {
         // dubbo's original impl can't support the use of ServletContext
         //        server.addHandler(servletHandler);
         // TODO Context.SESSIONS is the best option here? (In jetty 9.x, it becomes ServletContextHandler.SESSIONS)
+        // 创建ServletContextHandler并与Jetty Server关联
         ServletContextHandler context = new ServletContextHandler(server, "/", ServletContextHandler.SESSIONS);
         context.setServletHandler(servletHandler);
         ServletManager.getInstance().addServletContext(url.getParameter(Constants.BIND_PORT_KEY, url.getPort()), context.getServletContext());

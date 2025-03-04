@@ -1,0 +1,186 @@
+@startuml
+title Dubbo服务引用完整调用链
+
+participant "RegistryProtocol" as registry
+participant "RegistryProtocolListener" as listener
+participant "MigrationInvoker" as migration
+participant "RegistryDirectory" as directory
+participant "RouterChain" as routerChain
+participant "Router" as router
+participant "ClusterInvoker" as cluster
+participant "FilterChain" as filterChain
+participant "Filter" as filter
+participant "LoadBalance" as loadBalance
+participant "DubboInvoker" as invoker
+
+-> registry: refer()
+activate registry
+
+registry -> registry: findRegistryProtocolListeners()
+activate registry
+note right
+  获取所有注册的监听器:
+  1. ServiceDiscoveryRegistryProtocolListener
+  2. ExporterDestroyListener
+  3. ConfigurationListenerRegistryProtocolListener
+end note
+
+registry -> listener: onRefer()
+activate listener
+note right
+  监听器处理:
+  1. 服务引用前置处理
+  2. 配置变更监听
+  3. 服务销毁处理
+end note
+
+listener --> registry
+deactivate listener
+
+registry -> migration: new MigrationInvoker()
+activate migration
+
+migration -> directory: new RegistryDirectory()
+activate directory
+
+directory -> directory: subscribe()
+note right
+  1. 订阅providers
+  2. 订阅configurators
+  3. 订阅routers
+end note
+
+== 路由规则构建阶段 ==
+directory -> routerChain: buildRouterChain()
+activate routerChain
+
+routerChain -> router: createRouter()
+activate router
+
+router -> router: parseRule()
+note right
+  1. 条件路由规则
+  2. 标签路由规则
+  3. 脚本路由规则
+  4. 应用路由规则
+end note
+
+router -> router: initCache()
+note right
+  1. 规则缓存初始化
+  2. 匹配条件预处理
+  3. 地址列表构建
+end note
+
+router --> routerChain
+deactivate router
+
+routerChain --> directory
+deactivate routerChain
+
+== 过滤器链构建阶段 ==
+directory -> filterChain: buildFilterChain()
+activate filterChain
+
+filterChain -> filter: createFilter()
+activate filter
+note right
+  构建过滤器链:
+  1. ConsumerContextFilter
+  2. FutureFilter
+  3. MonitorFilter
+  4. TimeoutFilter
+  5. GenericFilter
+  6. ClassLoaderFilter
+  7. EchoFilter
+  8. TokenFilter
+  9. TpsLimitFilter
+  10. ExecuteLimitFilter
+end note
+
+filter --> filterChain
+deactivate filter
+
+filterChain --> directory
+deactivate filterChain
+
+== 负载均衡构建阶段 ==
+directory -> loadBalance: initLoadBalance()
+activate loadBalance
+note right
+  初始化负载均衡:
+  1. Random(默认)
+  2. RoundRobin
+  3. LeastActive
+  4. ConsistentHash
+  5. ShortestResponse
+end note
+
+loadBalance --> directory
+deactivate loadBalance
+
+== Invoker创建阶段 ==
+directory -> cluster: join()
+activate cluster
+note right
+  集群容错策略:
+  1. Failover(默认)
+  2. Failfast
+  3. Failsafe
+  4. Failback
+  5. Forking
+  6. Broadcast
+end note
+
+cluster -> invoker: new DubboInvoker()
+activate invoker
+
+invoker --> cluster
+deactivate invoker
+
+cluster --> directory
+deactivate cluster
+
+directory --> migration
+deactivate directory
+
+migration --> registry
+deactivate migration
+
+registry -> listener: onReferCompleted()
+activate listener
+note right
+  引用完成后处理:
+  1. 更新服务状态
+  2. 触发完成事件
+  3. 通知相关监听器
+end note
+
+listener --> registry
+deactivate listener
+
+<-- registry
+deactivate registry
+
+note right of listener
+  监听器职责:
+  1. 服务引用生命周期管理
+  2. 配置变更处理
+  3. 服务状态监控
+end note
+
+note right of routerChain
+  路由链职责:
+  1. 路由规则管理
+  2. 动态更新处理
+  3. 结果缓存维护
+end note
+
+note right of filterChain
+  过滤器链职责:
+  1. 调用拦截处理
+  2. 链式调用管理
+  3. 横切关注点处理
+end note
+
+@enduml

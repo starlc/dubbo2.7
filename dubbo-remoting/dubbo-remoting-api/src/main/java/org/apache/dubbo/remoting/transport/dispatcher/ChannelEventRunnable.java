@@ -53,6 +53,7 @@ public class ChannelEventRunnable implements Runnable {
     @Override
     public void run() {
         if (state == ChannelState.RECEIVED) {
+            // 处理接收消息 高频事件 单独的 if 判断比 switch-case 性能更好
             try {
                 handler.received(channel, message);
             } catch (Exception e) {

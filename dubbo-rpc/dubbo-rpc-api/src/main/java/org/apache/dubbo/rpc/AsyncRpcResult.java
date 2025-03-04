@@ -45,6 +45,11 @@ import static org.apache.dubbo.common.utils.ReflectUtils.defaultReturn;
  * AsyncRpcResult does not contain any concrete value (except the underlying value bring by CompletableFuture), consider it as a status transfer node.
  * {@link #getValue()} and {@link #getException()} are all inherited from {@link Result} interface, implementing them are mainly
  * for compatibility consideration. Because many legacy {@link Filter} implementation are most possibly to call getValue directly.
+ *
+ * 它表示的是一个异步的、未完成的 RPC 调用，其中会记录对应 RPC 调用的信息（例如，关联的 RpcContext 和 Invocation 对象）
+ *
+ * AsyncRpcResult 就可以处于不断地添加回调而不丢失 RpcContext 的状态。
+ * 总之，AsyncRpcResult 整个就是为异步请求设计的。
  */
 public class AsyncRpcResult implements Result {
     private static final Logger logger = LoggerFactory.getLogger(AsyncRpcResult.class);
@@ -52,18 +57,30 @@ public class AsyncRpcResult implements Result {
     /**
      * RpcContext may already have been changed when callback happens, it happens when the same thread is used to execute another RPC call.
      * So we should keep the reference of current RpcContext instance and restore it before callback being executed.
+     * 用于存储相关的 RpcContext 对象
+     * 我们知道 RpcContext 是与线程绑定的，而真正执行 AsyncRpcResult 上添加的回调方法的线程
+     * 可能先后处理过多个不同的 AsyncRpcResult，所以我们需要传递并保存当前的 RpcContext。
      */
     private RpcContext storedContext;
+    /**
+     * 用于存储相关的 RpcContext 对象
+     */
     private RpcContext storedServerContext;
-    private Executor executor;
+    private Executor executor;//此次 RPC 调用关联的线程池。
 
-    private Invocation invocation;
+    private Invocation invocation;//此次 RPC 调用关联的 Invocation 对象。
 
+    /**
+     * 这个 responseFuture 字段与前文提到的 DefaultFuture 有紧密的联系，
+     * 是 DefaultFuture 回调链上的一个 Future。后面 AsyncRpcResult 之上添加的回调，
+     * 实际上都是添加到这个 Future 之上。
+     */
     private CompletableFuture<AppResponse> responseFuture;
 
     public AsyncRpcResult(CompletableFuture<AppResponse> future, Invocation invocation) {
         this.responseFuture = future;
         this.invocation = invocation;
+        //将当前的 RpcContext 保存到 storedContext 和 storedServerContext 中
         this.storedContext = RpcContext.getContext();
         this.storedServerContext = RpcContext.getServerContext();
     }
@@ -142,15 +159,15 @@ public class AsyncRpcResult implements Result {
 
     public Result getAppResponse() {
         try {
-            if (responseFuture.isDone()) {
-                return responseFuture.get();
+            if (responseFuture.isDone()) {// 检测responseFuture是否已完成
+                return responseFuture.get();// 获取AppResponse
             }
         } catch (Exception e) {
             // This should not happen in normal request process;
             logger.error("Got exception when trying to fetch the underlying result from AsyncRpcResult.");
             throw new RpcException(e);
         }
-
+        // 根据调用方法的返回值，生成默认值
         return createDefaultValue(invocation);
     }
 
@@ -158,6 +175,8 @@ public class AsyncRpcResult implements Result {
      * This method will always return after a maximum 'timeout' waiting:
      * 1. if value returns before timeout, return normally.
      * 2. if no value returns after timeout, throw TimeoutException.
+     * 底层调用的就是 responseFuture 字段的 get() 方法，对于同步请求来说，
+     * 会先调用 ThreadlessExecutor.waitAndDrain() 方法阻塞等待响应返回
      *
      * @return
      * @throws InterruptedException
@@ -166,32 +185,45 @@ public class AsyncRpcResult implements Result {
     @Override
     public Result get() throws InterruptedException, ExecutionException {
         if (executor != null && executor instanceof ThreadlessExecutor) {
+            // 针对ThreadlessExecutor的特殊处理，这里调用waitAndDrain()等待响应
             ThreadlessExecutor threadlessExecutor = (ThreadlessExecutor) executor;
             threadlessExecutor.waitAndDrain();
         }
+        // 非ThreadlessExecutor线程池的场景中，则直接调用Future(最底层是DefaultFuture)的get()方法阻塞
         return responseFuture.get();
     }
 
     @Override
     public Result get(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException {
         if (executor != null && executor instanceof ThreadlessExecutor) {
+            // 针对ThreadlessExecutor的特殊处理，这里调用waitAndDrain()等待响应
             ThreadlessExecutor threadlessExecutor = (ThreadlessExecutor) executor;
             threadlessExecutor.waitAndDrain();
         }
+        // 非ThreadlessExecutor线程池的场景中，则直接调用Future(最底层是DefaultFuture)的get()方法阻塞
         return responseFuture.get(timeout, unit);
     }
 
     @Override
     public Object recreate() throws Throwable {
         RpcInvocation rpcInvocation = (RpcInvocation) invocation;
+        //FUTURE 模式也属于 Dubbo 提供的一种异步调用方式，只不过是服务端异步。
         if (InvokeMode.FUTURE == rpcInvocation.getInvokeMode()) {
             return RpcContext.getContext().getFuture();
         }
 
+        // 调用AppResponse.recreate()方法
         return getAppResponse().recreate();
     }
 
+    /**
+     * 通过 whenCompleteWithContext() 方法，我们可以为 AsyncRpcResult 添加回调方法，
+     * 而这个回调方法会被包装一层并注册到 responseFuture 上
+     * @param fn
+     * @return
+     */
     public Result whenCompleteWithContext(BiConsumer<Result, Throwable> fn) {
+        // 在responseFuture之上注册回调
         this.responseFuture = this.responseFuture.whenComplete((v, t) -> {
             beforeContext.accept(v, t);
             fn.accept(v, t);
@@ -287,13 +319,16 @@ public class AsyncRpcResult implements Result {
 
     private RpcContext tmpServerContext;
     private BiConsumer<Result, Throwable> beforeContext = (appResponse, t) -> {
+        // 将当前线程的 RpcContext 记录到 tmpContext 中
         tmpContext = RpcContext.getContext();
         tmpServerContext = RpcContext.getServerContext();
+        // 将构造函数中存储的 RpcContext 设置到当前线程中
         RpcContext.restoreContext(storedContext);
         RpcContext.restoreServerContext(storedServerContext);
     };
 
     private BiConsumer<Result, Throwable> afterContext = (appResponse, t) -> {
+        // 将tmpContext中存储的RpcContext恢复到当前线程绑定的RpcContext
         RpcContext.restoreContext(tmpContext);
         RpcContext.restoreServerContext(tmpServerContext);
     };

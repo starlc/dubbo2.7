@@ -22,6 +22,9 @@ import org.apache.dubbo.common.extension.SPI;
 
 import static org.apache.dubbo.common.extension.ExtensionLoader.getExtensionLoader;
 
+/**
+ * ZookeeperTransporter 只负责一件事情，那就是创建 ZookeeperClient 对象。
+ */
 @SPI
 public interface ZookeeperTransporter {
 

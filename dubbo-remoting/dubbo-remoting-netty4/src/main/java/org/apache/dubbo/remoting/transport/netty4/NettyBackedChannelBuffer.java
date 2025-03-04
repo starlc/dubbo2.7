@@ -28,6 +28,20 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 
+/**
+ * NettyBackedChannelBuffer 是基于 Netty 中 ByteBuf 的 ChannelBuffer 实现，
+ * Netty 中的 ByteBuf 内部维护了 readerIndex 和 writerIndex 以及 markedReaderIndex、markedWriterIndex 这四个索引，
+ * 所以 NettyBackedChannelBuffer 没有再继承 AbstractChannelBuffer 抽象类，而是直接实现了 ChannelBuffer 接口。
+ *
+ * 2. ByteBuf 的创建方式 ：
+ * - 可以是堆内存(HeapByteBuf)
+ * - 可以是直接内存(DirectByteBuf)
+ * - 可以是复合内存(CompositeByteBuf)
+ * 3. Netty 的默认分配策略 ：
+ * - 小于 16KB 的 Buffer 默认使用堆内存
+ * - 大于 16KB 的 Buffer 默认使用直接内存
+ * - 可通过配置修改这个阈值
+ */
 public class NettyBackedChannelBuffer implements ChannelBuffer {
 
     private ByteBuf buffer;

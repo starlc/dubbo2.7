@@ -48,6 +48,10 @@ public class MetadataUtils {
 
     public static RemoteMetadataServiceImpl remoteMetadataService;
 
+    /**
+     * RemoteMetadataServiceProxyFactory 的逻辑
+     * @return
+     */
     public static RemoteMetadataServiceImpl getRemoteMetadataService() {
         if (remoteMetadataService == null) {
             synchronized (REMOTE_LOCK) {
@@ -68,6 +72,16 @@ public class MetadataUtils {
 //        }
     }
 
+    /**
+     * 先通过 MetadataServiceURLBuilder 获取 MetadataService 接口的 URL，
+     * 然后通过 Protocol 接口引用指定 ServiceInstance 发布的 MetadataService 服务，
+     * 得到对应的 Invoker 对象，最后通过 ProxyFactory 在 Invoker 对象的基础上创建 MetadataService 本地代理
+     *
+     * DefaultMetadataServiceProxyFactory 这部分逻辑移动到这里了
+     * @param instance
+     * @param serviceDiscovery
+     * @return
+     */
     public static MetadataService getMetadataServiceProxy(ServiceInstance instance, ServiceDiscovery serviceDiscovery) {
         String key = instance.getServiceName() + "##" +
                 ServiceInstanceMetadataUtils.getExportedServicesRevision(instance);
@@ -77,6 +91,7 @@ public class MetadataUtils {
                     = ExtensionLoader.getExtensionLoader(MetadataServiceURLBuilder.class);
 
             Map<String, String> metadata = instance.getMetadata();
+            // 在使用Spring Cloud的时候，metadata集合中会包含METADATA_SERVICE_URLS_PROPERTY_NAME整个Key
             // METADATA_SERVICE_URLS_PROPERTY_NAME is a unique key exists only on instances of spring-cloud-alibaba.
             String dubboURLsJSON = metadata.get(METADATA_SERVICE_URLS_PROPERTY_NAME);
             if (StringUtils.isNotEmpty(dubboURLsJSON)) {
@@ -85,15 +100,18 @@ public class MetadataUtils {
                 builder = loader.getExtension(StandardMetadataServiceURLBuilder.NAME);
             }
 
+            // 构造MetadataService服务对应的URL集合
             List<URL> urls = builder.build(instance);
             if (CollectionUtils.isEmpty(urls)) {
                 throw new IllegalStateException("You have enabled introspection service discovery mode for instance "
                         + instance + ", but no metadata service can build from it.");
             }
 
+            // 引用服务，创建Invoker，注意，即使MetadataService接口使用了多种协议，这里也只会使用第一种协议
             // Simply rely on the first metadata url, as stated in MetadataServiceURLBuilder.
             Invoker<MetadataService> invoker = protocol.refer(MetadataService.class, urls.get(0));
 
+            // 创建MetadataService的本地代理对象
             return proxyFactory.getProxy(invoker);
         });
     }

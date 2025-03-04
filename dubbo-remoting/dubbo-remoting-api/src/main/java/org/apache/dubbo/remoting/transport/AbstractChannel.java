@@ -23,11 +23,11 @@ import org.apache.dubbo.remoting.RemotingException;
 import org.apache.dubbo.remoting.utils.PayloadDropper;
 
 /**
- * AbstractChannel
+ * AbstractChannel实现非常简单，只是在 send() 方法中检测了底层连接的状态，没有实现具体的发送消息的逻辑。
  */
 public abstract class AbstractChannel extends AbstractPeer implements Channel {
 
-    public AbstractChannel(URL url, ChannelHandler handler) {
+    protected AbstractChannel(URL url, ChannelHandler handler) {
         super(url, handler);
     }
 
